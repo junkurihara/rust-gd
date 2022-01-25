@@ -1,0 +1,9 @@
+[package]
+name = "rust-gd"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+lib_hamming = { path = "src/lib_hamming", version = "0.1.0" }

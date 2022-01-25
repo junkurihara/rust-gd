@@ -1,0 +1,8 @@
+[package]
+name = "lib_hamming"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.53"
+bitvec = "1.0.0"

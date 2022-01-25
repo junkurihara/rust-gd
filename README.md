@@ -1,2 +1,2 @@
 # rust-gd
-GD written in rust
+GD written in Rust
