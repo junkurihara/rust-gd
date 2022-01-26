@@ -1,5 +1,3 @@
-// use std::collections::HashMap;
-
 use bitvec::prelude::*;
 mod error;
 mod util;
@@ -94,11 +92,7 @@ impl Hamming {
         |acc, (pos, b)| {
           if *b {
             let pos_syn = &self.syndrome_tbl[pos + 1];
-            pos_syn
-              .iter()
-              .zip(&acc)
-              .map(|(i, j)| (*i && !*j) || (!*i && *j))
-              .collect()
+            acc ^ pos_syn
           } else {
             acc
           }
