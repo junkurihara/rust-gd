@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.53"
 bitvec = "1.0.0"
+phf = { version = "0.10.1", features = ["macros"] }
