@@ -7,7 +7,7 @@ use constant::POLYNOMIALS;
 use error::*;
 use util::{get_residue, msb_to_u32, u8vec_to_msb};
 
-pub use util::hexdump;
+pub use util::{bitdump, hexdump};
 
 #[derive(Debug, Clone)]
 pub struct Syndrome {
@@ -26,6 +26,34 @@ impl Syndrome {
   }
   pub fn dump_noerror(&self) -> String {
     hexdump(self.no_error.as_raw_slice())
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct SyndromeBits {
+  pub no_error: BitVec<u8, Msb0>,
+  pub info: BitVec<u8, Msb0>,
+  pub syndrome: BitVec<u8, Msb0>,
+}
+
+impl SyndromeBits {
+  pub fn dump_info(&self) -> String {
+    hexdump(self.info.as_raw_slice())
+  }
+  pub fn dump_syndrome(&self) -> String {
+    hexdump(self.syndrome.as_raw_slice())
+  }
+  pub fn dump_noerror(&self) -> String {
+    hexdump(self.no_error.as_raw_slice())
+  }
+  pub fn bitdump_info(&self) -> String {
+    bitdump(self.info.as_bitslice())
+  }
+  pub fn bitdump_syndrome(&self) -> String {
+    bitdump(self.syndrome.as_bitslice())
+  }
+  pub fn bitdump_noerror(&self) -> String {
+    bitdump(self.no_error.as_bitslice())
   }
 }
 
@@ -139,12 +167,82 @@ impl Hamming {
       padding_bits_msb,
     })
   }
+
+  pub fn get_syndrome_bits(&self, data: &BitSlice<u8, Msb0>) -> Result<SyndromeBits, Error> {
+    assert_eq!(data.len(), self.code_len);
+
+    let syn = data.iter().rev().enumerate().fold(
+      bitvec![u8, Msb0; 0; self.code_len - self.info_len],
+      |acc, (pos, b)| {
+        if *b {
+          let pos_syn = &self.syndrome_tbl[pos + 1];
+          acc ^ pos_syn
+        } else {
+          acc
+        }
+      },
+    );
+
+    let mut noerror = data.to_bitvec();
+    let syn_val = msb_to_u32(&syn);
+    if syn_val > 0 {
+      let error_pos = self.code_len - self.syndrome_tbl_rev[syn_val as usize] as usize;
+      let pos_val = noerror[error_pos];
+      noerror.set(error_pos, !pos_val);
+    }
+    // println!("{}", noerror);
+    let info = (&noerror[self.code_len - self.info_len..]).to_bitvec();
+    assert_eq!(info.len(), self.info_len);
+    assert_eq!(noerror.len(), self.code_len);
+    assert_eq!(syn.len(), self.deg as usize);
+
+    Ok(SyndromeBits {
+      no_error: noerror,
+      syndrome: syn,
+      info,
+    })
+  }
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
   use constant::test_vectors::*;
+
+  #[test]
+  fn test_gen3_bits() {
+    let code_len = 7;
+    let hamming = Hamming::new(3).unwrap();
+
+    let data: BitVec<u8, Msb0> = bitvec![u8, Msb0; 0; code_len];
+    let syndrome = hamming.get_syndrome_bits(&data).unwrap();
+    assert_eq!("0000", syndrome.bitdump_info());
+    assert_eq!("000", syndrome.bitdump_syndrome());
+    assert_eq!("0000000", syndrome.bitdump_noerror());
+
+    let data: BitVec<u8, Msb0> = bitvec![u8, Msb0; 1; code_len];
+    let syndrome = hamming.get_syndrome_bits(&data).unwrap();
+    assert_eq!("1111", syndrome.bitdump_info());
+    assert_eq!("000", syndrome.bitdump_syndrome());
+    assert_eq!("1111111", syndrome.bitdump_noerror());
+  }
+
+  #[test]
+  fn test_gen8_bits() {
+    let code_len = 255;
+    let hamming = Hamming::new(8).unwrap();
+
+    let data: BitVec<u8, Msb0> = bitvec![u8, Msb0; 0; code_len];
+    let syndrome = hamming.get_syndrome_bits(&data).unwrap();
+    assert_eq!("0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", syndrome.bitdump_info());
+    assert_eq!("00000000", syndrome.bitdump_syndrome());
+    assert_eq!("000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", syndrome.bitdump_noerror());
+    let data: BitVec<u8, Msb0> = bitvec![u8, Msb0; 1; code_len];
+    let syndrome = hamming.get_syndrome_bits(&data).unwrap();
+    assert_eq!("1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111", syndrome.bitdump_info());
+    assert_eq!("00000000", syndrome.bitdump_syndrome());
+    assert_eq!("111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111", syndrome.bitdump_noerror());
+  }
 
   #[test]
   fn test_deg3() {
