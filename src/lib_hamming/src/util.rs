@@ -71,70 +71,70 @@ fn get_residue_bits(
   }
 }
 
-#[test]
-fn test_residue_with_leading_zeros() {
-  let bit_num = BitVec::<u8, Msb0>::from_element(0b10000);
-  let bit_poly = BitVec::<u8, Msb0>::from_element(0b1011);
-  let res = get_residue(&bit_num, &bit_poly);
-  assert_eq!(res, bitvec![u8, Msb0; 1, 1, 0]);
+#[cfg(test)]
+mod tests {
+  use super::*;
 
-  let bit_num = BitVec::<u8, Msb0>::from_element(0b1000_0000);
-  // println!("{:?}", bit_num);
-  let bit_poly = BitVec::<u8, Msb0>::from_element(0b10011);
-  let res = get_residue(&bit_num, &bit_poly);
-  assert_eq!(res, bitvec![u8, Msb0; 1, 0, 1, 1]);
+  #[test]
+  fn test_residue_with_leading_zeros() {
+    let bit_num = BitVec::<u8, Msb0>::from_element(0b10000);
+    let bit_poly = BitVec::<u8, Msb0>::from_element(0b1011);
+    let res = get_residue(&bit_num, &bit_poly);
+    assert_eq!(res, bitvec![u8, Msb0; 1, 1, 0]);
 
-  let bit_num = BitVec::<u8, Msb0>::from_vec(vec![0x80u8, 0x00u8]);
-  let bit_poly = BitVec::<u8, Msb0>::from_vec(vec![0b1, 0x1Du8]);
-  let res = get_residue(&bit_num, &bit_poly);
-  assert_eq!(res, BitVec::<u8, Msb0>::from_element(0x26u8));
-}
+    let bit_num = BitVec::<u8, Msb0>::from_element(0b1000_0000);
+    // println!("{:?}", bit_num);
+    let bit_poly = BitVec::<u8, Msb0>::from_element(0b10011);
+    let res = get_residue(&bit_num, &bit_poly);
+    assert_eq!(res, bitvec![u8, Msb0; 1, 0, 1, 1]);
 
-#[test]
-fn test_residue() {
-  let bit_poly: BitVec<u8, Msb0> = bitvec![u8, Msb0; 1, 0, 0, 1, 1];
-  let ba: BitVec<u8, Msb0> = bitvec![u8, Msb0; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0];
-  assert_eq!(
-    bitvec![u8, Msb0; 0, 1, 0, 1],
-    get_residue(&ba, &bit_poly)
-  );
+    let bit_num = BitVec::<u8, Msb0>::from_vec(vec![0x80u8, 0x00u8]);
+    let bit_poly = BitVec::<u8, Msb0>::from_vec(vec![0b1, 0x1Du8]);
+    let res = get_residue(&bit_num, &bit_poly);
+    assert_eq!(res, BitVec::<u8, Msb0>::from_element(0x26u8));
+  }
 
-  let bit_poly: BitVec<u8, Msb0> = bitvec![u8, Msb0; 1, 0, 0, 1, 1];
-  let ba: BitVec<u8, Msb0> = bitvec![u8, Msb0; 0, 1, 0];
-  assert_eq!(
-    bitvec![u8, Msb0; 0, 0, 1, 0],
-    get_residue(&ba, &bit_poly)
-  );
-}
+  #[test]
+  fn test_residue() {
+    let bit_poly: BitVec<u8, Msb0> = bitvec![u8, Msb0; 1, 0, 0, 1, 1];
+    let ba: BitVec<u8, Msb0> = bitvec![u8, Msb0; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0];
+    assert_eq!(bitvec![u8, Msb0; 0, 1, 0, 1], get_residue(&ba, &bit_poly));
 
-#[test]
-fn test_u32_to_bitvec_msb() {
-  let u8vec = u32_to_u8vec(&0xFF10);
-  assert_eq!(u8vec, vec![0u8, 0, 0xFF, 0x10]);
+    let bit_poly: BitVec<u8, Msb0> = bitvec![u8, Msb0; 1, 0, 0, 1, 1];
+    let ba: BitVec<u8, Msb0> = bitvec![u8, Msb0; 0, 1, 0];
+    assert_eq!(bitvec![u8, Msb0; 0, 0, 1, 0], get_residue(&ba, &bit_poly));
+  }
 
-  let bv = u8vec_to_msb(&u8vec);
-  let exp_bv = bits![
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0,
-  ];
-  assert_eq!(bv, exp_bv.to_bitvec());
-  let bv = u32_to_msb(&0xFF10);
-  assert_eq!(bv, exp_bv.to_bitvec());
-}
+  #[test]
+  fn test_u32_to_bitvec_msb() {
+    let u8vec = u32_to_u8vec(&0xFF10);
+    assert_eq!(u8vec, vec![0u8, 0, 0xFF, 0x10]);
 
-#[test]
-fn test_msb_to_u32() {
-  let bv = bitvec![u8, Msb0; 1, 0];
-  assert_eq!(2, msb_to_u32(&bv));
+    let bv = u8vec_to_msb(&u8vec);
+    let exp_bv = bits![
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0,
+      0,
+    ];
+    assert_eq!(bv, exp_bv.to_bitvec());
+    let bv = u32_to_msb(&0xFF10);
+    assert_eq!(bv, exp_bv.to_bitvec());
+  }
 
-  let bv = bitvec![u8, Msb0; 1, 0, 0, 0];
-  assert_eq!(8, msb_to_u32(&bv));
+  #[test]
+  fn test_msb_to_u32() {
+    let bv = bitvec![u8, Msb0; 1, 0];
+    assert_eq!(2, msb_to_u32(&bv));
 
-  let bv = bitvec![u8, Msb0; 0, 1, 0, 1, 0, 0, 0, 0];
-  assert_eq!(80, msb_to_u32(&bv));
+    let bv = bitvec![u8, Msb0; 1, 0, 0, 0];
+    assert_eq!(8, msb_to_u32(&bv));
 
-  let bv = bitvec![u8, Msb0; 1, 1, 1, 1, 1, 1, 1, 1];
-  assert_eq!(255, msb_to_u32(&bv));
+    let bv = bitvec![u8, Msb0; 0, 1, 0, 1, 0, 0, 0, 0];
+    assert_eq!(80, msb_to_u32(&bv));
 
-  let bv = bitvec![u8, Msb0; 1, 1, 1, 1, 1, 1, 1, 1, 1];
-  assert_eq!(511, msb_to_u32(&bv));
+    let bv = bitvec![u8, Msb0; 1, 1, 1, 1, 1, 1, 1, 1];
+    assert_eq!(255, msb_to_u32(&bv));
+
+    let bv = bitvec![u8, Msb0; 1, 1, 1, 1, 1, 1, 1, 1, 1];
+    assert_eq!(511, msb_to_u32(&bv));
+  }
 }
