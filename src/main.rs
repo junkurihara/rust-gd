@@ -29,6 +29,7 @@ fn proc(reader: &mut dyn Read, writer: &mut dyn Write) {
         .as_bytes(),
         // TODO: ここでdecode作ってみる
       );
+      let dup = gd_dec.dup(&deduped);
     }
     /////////////////////////
 

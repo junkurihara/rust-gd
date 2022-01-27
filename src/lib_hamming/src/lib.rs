@@ -9,6 +9,7 @@ use util::{get_residue, msb_to_u32, u8vec_to_msb};
 
 pub use util::hexdump;
 
+#[derive(Debug, Clone)]
 pub struct Syndrome {
   pub no_error: BitVec<u8, Msb0>,
   pub info: BitVec<u8, Msb0>,
