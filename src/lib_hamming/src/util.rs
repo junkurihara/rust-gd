@@ -1,6 +1,12 @@
 // use crate::error::*;
 use bitvec::prelude::*;
 
+pub fn hexdump(bytes: &[u8]) -> String {
+  bytes
+    .iter()
+    .fold("".to_owned(), |s, b| format!("{}{:02X}", s, b))
+}
+
 pub fn u32_to_u8vec(num: &u32) -> Vec<u8> {
   let mask: u32 = 0xFF;
   let u8vec: Vec<u8> = (0..4)

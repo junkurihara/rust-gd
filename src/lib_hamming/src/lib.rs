@@ -7,6 +7,8 @@ use constant::POLYNOMIALS;
 use error::*;
 use util::{get_residue, msb_to_u32, u8vec_to_msb};
 
+pub use util::hexdump;
+
 pub struct Syndrome {
   pub no_error: BitVec<u8, Msb0>,
   pub info: BitVec<u8, Msb0>,
@@ -14,13 +16,25 @@ pub struct Syndrome {
   pub padding_bits_msb: usize,
 }
 
+impl Syndrome {
+  pub fn dump_info(&self) -> String {
+    hexdump(self.info.as_raw_slice())
+  }
+  pub fn dump_syndrome(&self) -> String {
+    hexdump(self.syndrome.as_raw_slice())
+  }
+  pub fn dump_noerror(&self) -> String {
+    hexdump(self.no_error.as_raw_slice())
+  }
+}
+
 #[derive(Debug, Clone)]
 pub struct Hamming {
-  deg: u32,                            // m
-  code_len: usize,                     // n
-  info_len: usize,                     // k
-  syndrome_tbl: Vec<BitVec<u8, Msb0>>, // error vec -> syndrome
-  syndrome_tbl_rev: Vec<u32>, // syndrome (expressed in usize msb) -> one error bit idx, idx=0 then no error
+  pub deg: u32,                            // m
+  pub code_len: usize,                     // n
+  pub info_len: usize,                     // k
+  pub syndrome_tbl: Vec<BitVec<u8, Msb0>>, // error vec -> syndrome
+  pub syndrome_tbl_rev: Vec<u32>, // syndrome (expressed in usize msb) -> one error bit idx, idx=0 then no error
 }
 
 impl Hamming {
@@ -131,12 +145,6 @@ mod tests {
   use super::*;
   use constant::test_vectors::*;
 
-  fn hex(bytes: &[u8]) -> String {
-    bytes
-      .iter()
-      .fold("".to_owned(), |s, b| format!("{}{:02X}", s, b))
-  }
-
   #[test]
   fn test_deg3() {
     // Generator matrix: MSB <-> LSB
@@ -153,9 +161,9 @@ mod tests {
     let data: Vec<u8> = (0..255).into_iter().collect();
     let syndrome = hamming.get_syndrome(&data).unwrap();
 
-    assert_eq!(hex(syndrome.syndrome.as_raw_slice()), TEST_VEC_3_SYN);
-    assert_eq!(hex(syndrome.no_error.as_raw_slice()), TEST_VEC_3_NOERR);
-    assert_eq!(hex(syndrome.info.as_raw_slice()), TEST_VEC_3_INFO);
+    assert_eq!(syndrome.dump_syndrome(), TEST_VEC_3_SYN);
+    assert_eq!(syndrome.dump_noerror(), TEST_VEC_3_NOERR);
+    assert_eq!(syndrome.dump_info(), TEST_VEC_3_INFO);
   }
 
   #[test]
@@ -165,9 +173,9 @@ mod tests {
     let data: Vec<u8> = (0..255).into_iter().collect();
     let syndrome = hamming.get_syndrome(&data).unwrap();
 
-    assert_eq!(hex(syndrome.syndrome.as_raw_slice()), TEST_VEC_4_SYN);
-    assert_eq!(hex(syndrome.no_error.as_raw_slice()), TEST_VEC_4_NOERR);
-    assert_eq!(hex(syndrome.info.as_raw_slice()), TEST_VEC_4_INFO);
+    assert_eq!(syndrome.dump_syndrome(), TEST_VEC_4_SYN);
+    assert_eq!(syndrome.dump_noerror(), TEST_VEC_4_NOERR);
+    assert_eq!(syndrome.dump_info(), TEST_VEC_4_INFO);
   }
 
   #[test]
@@ -177,8 +185,8 @@ mod tests {
     let data: Vec<u8> = (0..255).into_iter().collect();
     let syndrome = hamming.get_syndrome(&data).unwrap();
 
-    assert_eq!(hex(syndrome.syndrome.as_raw_slice()), TEST_VEC_8_SYN);
-    assert_eq!(hex(syndrome.no_error.as_raw_slice()), TEST_VEC_8_NOERR);
-    assert_eq!(hex(syndrome.info.as_raw_slice()), TEST_VEC_8_INFO);
+    assert_eq!(syndrome.dump_syndrome(), TEST_VEC_8_SYN);
+    assert_eq!(syndrome.dump_noerror(), TEST_VEC_8_NOERR);
+    assert_eq!(syndrome.dump_info(), TEST_VEC_8_INFO);
   }
 }
