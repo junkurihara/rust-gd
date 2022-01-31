@@ -17,7 +17,7 @@ fn proc(reader: &mut dyn Read, writer: &mut dyn Write) {
     }
     /////////////////////////
     // GD proc here
-    if let Ok(deduped) = gd_enc.dedup(&buf[..n]) {
+    if let Ok((deduped, pad_len)) = gd_enc.dedup(&buf[..n]) {
       // println!("{}", hexdump(deduped.as_raw_slice()));
       let _ = writer.write(
         format!(
@@ -27,7 +27,11 @@ fn proc(reader: &mut dyn Read, writer: &mut dyn Write) {
         .as_bytes(),
         // TODO: ここでdecode作ってみる
       );
-      // let dup = gd_dec.dup(&deduped);
+      println!("{}", deduped);
+      let dup = gd_dec.dup(&deduped, pad_len);
+      println!("{}", String::from_utf8(dup.unwrap()).unwrap());
+    } else {
+      panic!("");
     }
     /////////////////////////
 

@@ -1,51 +1,35 @@
+mod dict;
 mod error;
+mod separator;
 
+use std::io::Read;
+
+use crate::dict::BaseDict;
 use crate::error::*;
+use crate::separator::Separator;
 use bitvec::prelude::*;
 use lib_hamming::*;
-use std::collections::HashMap;
-
-enum Separator {
-  Deduped,
-  AsIs,
-}
-
-impl Separator {
-  pub fn bv(&self) -> BitVec {
-    match *self {
-      Separator::Deduped => bitvec![1],
-      Self::AsIs => bitvec![0],
-    }
-  }
-}
 
 #[derive(Debug, Clone)]
 pub struct GenDedup {
   code: Hamming,
-  dict_size: usize,
-  id_bitlen: u32,
-  dict_idx_to_base: Vec<BitVec<u8, Msb0>>,
-  dict_base_to_idx: HashMap<BitVec<u8, Msb0>, usize>,
+  base_dict: BaseDict,
 }
 
 impl GenDedup {
   pub fn new(deg: u32) -> Result<Self, Error> {
     if let Ok(code) = Hamming::new(deg) {
+      // TODO: tentative, dict_size should be fixed size like 8bits in most cases
+      // TODO: Also must be known to the receiver, so init params must be passed beforehand
       let dict_size = code.info_len;
-      let id_bitlen = 0usize.leading_zeros() - code.info_len.leading_zeros();
-      Ok(GenDedup {
-        code,
-        dict_size, // TODO: This must be know to the receiver
-        id_bitlen,
-        dict_base_to_idx: HashMap::new(),
-        dict_idx_to_base: Vec::new(),
-      })
+      let base_dict = BaseDict::new(dict_size);
+      Ok(GenDedup { code, base_dict })
     } else {
       bail!("Failed to instantiate associated Hamming code");
     }
   }
 
-  pub fn dedup(&mut self, buf: &[u8]) -> Result<BitVec<u8, Msb0>, Error> {
+  pub fn dedup(&mut self, buf: &[u8]) -> Result<(BitVec<u8, Msb0>, usize), Error> {
     let code_len = self.code.code_len;
     let bitbuf = BitSlice::<u8, Msb0>::from_slice(buf);
     let pad_len = code_len - bitbuf.len() % code_len;
@@ -60,146 +44,61 @@ impl GenDedup {
       } else {
         &bitbuf[bitptr..bitptr + code_len]
       };
-      let synd = if let Ok(s) = self.code.get_syndrome_bits(target_slice) {
-        s
-      } else {
-        bail!("Failed to process buffer");
-      };
-
-      // handle dict maxsize
-      if self.dict_idx_to_base.len() >= self.dict_size {
-        self.flush_dict();
-        println!("flush dictionary");
-      }
+      let synd = self.code.decode(target_slice);
 
       // write result and update dict
-      let bs_base = &synd.info;
-      let bs_deviation = &synd.syndrome;
-      if self.dict_base_to_idx.contains_key(bs_base) {
-        let id = self.dict_base_to_idx.get(bs_base).unwrap();
-        println!("found base: id {:4X}", id); //: {}", bs_base);
-        let bs_id: BitVec<usize, Msb0> = BitVec::from_element(*id);
-        // separator deduped
-        res.extend_from_bitslice(&Separator::Deduped.bv());
-        res.extend_from_bitslice(&bs_id[bs_id.len() - self.id_bitlen as usize..]);
-      } else {
-        self
-          .dict_base_to_idx
-          .insert(bs_base.to_bitvec(), self.dict_idx_to_base.len());
-        self.dict_idx_to_base.push(bs_base.to_bitvec());
-        // separator as-is
-        res.extend_from_bitslice(&Separator::AsIs.bv());
-        res.extend_from_bitslice(bs_base);
-      }
-      res.extend_from_bitslice(bs_deviation);
+      let (sep, id_or_base) = self.base_dict.get_id_or_base(&synd.info).unwrap();
+      res.extend_from_bitslice(&sep.bv());
+      res.extend_from_bitslice(&id_or_base);
+      res.extend_from_bitslice(&synd.syndrome);
 
       bitptr += code_len;
+      // println!("{}", target_slice);
     }
 
     println!("Deduped {} -> {} (bits)", bitbuf.len(), res.len());
-    Ok(res)
-
-    // match self.code.get_syndrome(buf) {
-    //   Ok(synd) => {
-    //     // println!("{:?}", buf);
-    //     // println!("{}", synd.dump_info());
-    //     // println!("{}", synd.dump_syndrome());
-    //     // println!("{}", synd.dump_noerror());
-    //     let mut res = BitVec::<u8, Msb0>::new();
-    //     let block_num = if synd.info.len() % self.code.info_len > 0 {
-    //       synd.info.len() / self.code.info_len + 1
-    //     } else {
-    //       synd.info.len() / self.code.info_len
-    //     };
-    //     for block_idx in 0..block_num {
-    //       let offset_info = block_idx * self.code.info_len;
-    //       let offset_synd = block_idx * self.code.deg as usize;
-    //       let bs_info = &synd.info[offset_info..offset_info + self.code.info_len];
-    //       let bs_synd = &synd.syndrome[offset_synd..offset_synd + self.code.deg as usize];
-
-    //       // handle dict maxsize
-    //       if self.dict_idx_to_base.len() >= self.dict_size {
-    //         self.flush_dict();
-    //         println!("flush dictionary");
-    //       }
-
-    //       if self.dict_base_to_idx.contains_key(bs_info) {
-    //         let id = self.dict_base_to_idx.get(bs_info).unwrap();
-    //         println!("found base: id {:4X}", id); //: {}", bs_info);
-    //         let bs_id: BitVec<usize, Msb0> = BitVec::from_element(*id);
-    //         // separator deduped
-    //         res.extend_from_bitslice(bits![1]);
-    //         res.extend_from_bitslice(&bs_id[bs_id.len() - self.id_bitlen as usize..]);
-    //       } else {
-    //         self
-    //           .dict_base_to_idx
-    //           .insert(bs_info.to_bitvec(), self.dict_idx_to_base.len());
-    //         self.dict_idx_to_base.push(bs_info.to_bitvec());
-    //         // separator as-is
-    //         res.extend_from_bitslice(bits![0]);
-    //         res.extend_from_bitslice(bs_info);
-    //       }
-    //       res.extend_from_bitslice(bs_synd);
-    //     }
-
-    //     // println!("{}", hexdump(res.as_raw_slice()));
-    //     Ok(res)
-    //   }
-    //   Err(e) => Err(e),
-    // }
+    Ok((res, pad_len))
   }
 
-  // pub fn dup(&mut self, deduped: &BitSlice<u8, Msb0>) -> Result<(), Error> {
-  //   // println!("{}", hexdump(deduped.to_bitvec().as_raw_slice()));
-  //   let mut ptr = 0usize;
-  //   let mut info_concat = BitVec::<u8, Msb0>::new();
-  //   loop {
-  //     if ptr == deduped.len() {
-  //       break;
-  //     }
-  //     if self.dict_idx_to_base.len() >= self.dict_size {
-  //       self.flush_dict();
-  //       println!("flush dictionary");
-  //     }
+  pub fn dup(&mut self, deduped: &BitSlice<u8, Msb0>, pad_len: usize) -> Result<Vec<u8>, Error> {
+    let code_len = self.code.code_len;
+    let info_len = self.code.info_len;
+    let synd_len = code_len - info_len;
+    let id_bitlen = self.base_dict.get_id_bitlen();
+    let mut res = BitVec::<u8, Msb0>::new();
 
-  //     let separator = deduped[ptr];
-  //     ptr += 1;
-  //     let bs_info = if separator {
-  //       // deduped
-  //       println!("deduped");
-  //       let bs_id: BitVec<u8, Msb0> =
-  //         BitVec::from_bitslice(&deduped[ptr..ptr + self.id_bitlen as usize]);
-  //       let id = bs_id.as_raw_slice()[0] as usize;
-  //       ptr += self.id_bitlen as usize;
-  //       self.dict_idx_to_base.get(id).unwrap()
-  //     } else {
-  //       // as-is
-  //       println!("asis");
-  //       let bs_info = &deduped[ptr..ptr + self.code.info_len];
-  //       self
-  //         .dict_base_to_idx
-  //         .insert(bs_info.to_bitvec(), self.dict_idx_to_base.len());
-  //       self.dict_idx_to_base.push(bs_info.to_bitvec());
-  //       ptr += self.code.info_len as usize;
-  //       bs_info
-  //     };
+    let mut bitptr = 0usize;
+    while bitptr < deduped.len() - 1 {
+      let sep = match deduped[bitptr] {
+        false => Separator::AsIs,
+        true => Separator::Deduped,
+      };
+      bitptr += 1;
+      let (base_or_id, step) = match sep {
+        Separator::AsIs => (&deduped[bitptr..bitptr + info_len], info_len),
+        Separator::Deduped => (&deduped[bitptr..bitptr + id_bitlen], id_bitlen),
+      };
+      bitptr += step;
+      let base = if let Ok(b) = self.base_dict.get_base(base_or_id, sep) {
+        b
+      } else {
+        bail!("Invalid dictionary")
+      };
+      let synd = &deduped[bitptr..bitptr + synd_len];
+      bitptr += synd_len;
 
-  //     let mut bs_codeword = bitvec![u8, Msb0; 0; self.code.deg as usize];
-  //     bs_codeword.extend_from_bitslice(bs_info);
-  //     info_concat.extend_from_bitslice(&bs_codeword);
+      let parity = self.code.encode(&base, synd);
+      // println!("{}", parity.erroneous);
+      if bitptr == deduped.len() {
+        res.extend_from_bitslice(&parity.erroneous[pad_len..]);
+      } else {
+        res.extend_from_bitslice(&parity.erroneous);
+      }
+    }
+    assert_eq!(bitptr, deduped.len());
+    assert_eq!(res.len() % 8, 0);
 
-  //     ptr += self.code.deg as usize;
-  //   }
-  //   let syndrome = self.code.get_syndrome(info_concat.as_raw_slice());
-  //   println!("{:?}", syndrome);
-  //   // TODO: hamming libをまとめて処理する形をやめないと色々厳しそう。符号語単位で処理するように変更する。
-
-  //   Ok(())
-  // }
-
-  fn flush_dict(&mut self) {
-    self.dict_base_to_idx = HashMap::new();
-    self.dict_idx_to_base = Vec::new();
+    Ok(res.as_raw_slice().to_owned())
   }
 }
 
@@ -209,6 +108,8 @@ mod tests {
 
   #[test]
   fn test_deg3() {
-    let gd = GenDedup::new(3).unwrap();
+    let mut gd = GenDedup::new(3).unwrap();
+    let deduped = gd.dedup(&[0u8, 0, 0, 0, 0, 0, 0]).unwrap();
+    println!("deduped: {}", deduped.0);
   }
 }
