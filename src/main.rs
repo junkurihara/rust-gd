@@ -21,15 +21,13 @@ fn proc(reader: &mut dyn Read, writer: &mut dyn Write) {
       // println!("{}", hexdump(deduped.as_raw_slice()));
       let _ = writer.write(
         format!(
-          "Deduped (HexDump):{} bits -> {} bits\n {}\n",
-          n * 8,
-          deduped.len(),
+          "Deduped (HexDump):\n> {}\n",
           hexdump(deduped.as_raw_slice())
         )
         .as_bytes(),
         // TODO: ここでdecode作ってみる
       );
-      let dup = gd_dec.dup(&deduped);
+      // let dup = gd_dec.dup(&deduped);
     }
     /////////////////////////
 

@@ -30,13 +30,13 @@ impl Syndrome {
 }
 
 #[derive(Debug, Clone)]
-pub struct SyndromeBits {
+pub struct DecodedWord {
   pub no_error: BitVec<u8, Msb0>,
   pub info: BitVec<u8, Msb0>,
   pub syndrome: BitVec<u8, Msb0>,
 }
 
-impl SyndromeBits {
+impl DecodedWord {
   pub fn dump_info(&self) -> String {
     hexdump(self.info.as_raw_slice())
   }
@@ -168,7 +168,7 @@ impl Hamming {
     })
   }
 
-  pub fn get_syndrome_bits(&self, data: &BitSlice<u8, Msb0>) -> Result<SyndromeBits, Error> {
+  pub fn get_syndrome_bits(&self, data: &BitSlice<u8, Msb0>) -> Result<DecodedWord, Error> {
     assert_eq!(data.len(), self.code_len);
 
     let syn = data.iter().rev().enumerate().fold(
@@ -196,7 +196,7 @@ impl Hamming {
     assert_eq!(noerror.len(), self.code_len);
     assert_eq!(syn.len(), self.deg as usize);
 
-    Ok(SyndromeBits {
+    Ok(DecodedWord {
       no_error: noerror,
       syndrome: syn,
       info,
@@ -210,7 +210,7 @@ mod tests {
   use constant::test_vectors::*;
 
   #[test]
-  fn test_gen3_bits() {
+  fn test_deg3_bits() {
     let code_len = 7;
     let hamming = Hamming::new(3).unwrap();
 
@@ -225,10 +225,16 @@ mod tests {
     assert_eq!("1111", syndrome.bitdump_info());
     assert_eq!("000", syndrome.bitdump_syndrome());
     assert_eq!("1111111", syndrome.bitdump_noerror());
+
+    let data: BitVec<u8, Msb0> = bitvec![u8, Msb0; 1,1,0,1,0,1,1];
+    let syndrome = hamming.get_syndrome_bits(&data).unwrap();
+    assert_eq!("1001", syndrome.bitdump_info());
+    assert_eq!("010", syndrome.bitdump_syndrome());
+    assert_eq!("1101001", syndrome.bitdump_noerror());
   }
 
   #[test]
-  fn test_gen8_bits() {
+  fn test_deg8_bits() {
     let code_len = 255;
     let hamming = Hamming::new(8).unwrap();
 
