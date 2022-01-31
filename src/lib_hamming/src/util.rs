@@ -95,7 +95,6 @@ mod tests {
     assert_eq!(res, bitvec![u8, Msb0; 1, 1, 0]);
 
     let bit_num = BitVec::<u8, Msb0>::from_element(0b1000_0000);
-    // println!("{:?}", bit_num);
     let bit_poly = BitVec::<u8, Msb0>::from_element(0b10011);
     let res = get_residue(&bit_num, &bit_poly);
     assert_eq!(res, bitvec![u8, Msb0; 1, 0, 1, 1]);

@@ -7,7 +7,7 @@ const BUFFER_SIZE: usize = 512 * 1024;
 
 fn proc(reader: &mut dyn Read, writer: &mut dyn Write) {
   let mut buf = [0u8; BUFFER_SIZE];
-  let deg = 8;
+  let deg = 6;
   let mut gd_enc = GenDedup::new(deg).unwrap();
   let mut gd_dec = GenDedup::new(deg).unwrap();
 
@@ -21,17 +21,17 @@ fn proc(reader: &mut dyn Read, writer: &mut dyn Write) {
       // println!("{}", hexdump(deduped.as_raw_slice()));
       let _ = writer.write(
         format!(
-          "Deduped (HexDump):\n> {}\n",
+          "> Deduped (HexDump):\n> {}\n",
           hexdump(deduped.as_raw_slice())
         )
         .as_bytes(),
-        // TODO: ここでdecode作ってみる
       );
-      println!("{}", deduped);
       let dup = gd_dec.dup(&deduped, pad_len);
-      println!("{}", String::from_utf8(dup.unwrap()).unwrap());
+      let _ = writer
+        .write(format!("> Duped:\n> {}", String::from_utf8(dup.unwrap()).unwrap()).as_bytes());
+      println!("> Compressed {} -> {} (bits)", n * 8, deduped.len());
     } else {
-      panic!("");
+      panic!("omg");
     }
     /////////////////////////
 

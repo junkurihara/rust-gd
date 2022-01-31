@@ -74,7 +74,6 @@ impl BaseDict {
           dst.set(*src);
         }
 
-        // println!("id: > {}", id);
         let base = if let Some(b) = self.dict_id_to_base.get(&id) {
           b
         } else {
@@ -96,7 +95,6 @@ impl BaseDict {
         };
         self.dict_base_to_id.insert(base_or_id.to_bitvec(), new_id);
         self.dict_id_to_base.insert(new_id, base_or_id.to_bitvec());
-        // println!("> newid = {}", new_id);
         Ok(base_or_id.to_bitvec())
       }
     }
@@ -119,7 +117,6 @@ impl BaseDict {
     if kr != k || vr != v {
       bail!("Failed to remove...Broken dictionary");
     }
-    // println!("> drop {}", v);
     Ok(v)
   }
 }

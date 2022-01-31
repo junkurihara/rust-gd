@@ -2,8 +2,6 @@ mod dict;
 mod error;
 mod separator;
 
-use std::io::Read;
-
 use crate::dict::BaseDict;
 use crate::error::*;
 use crate::separator::Separator;
@@ -30,6 +28,7 @@ impl GenDedup {
   }
 
   pub fn dedup(&mut self, buf: &[u8]) -> Result<(BitVec<u8, Msb0>, usize), Error> {
+    // TODO: Byte Alignment is needed
     let code_len = self.code.code_len;
     let bitbuf = BitSlice::<u8, Msb0>::from_slice(buf);
     let pad_len = code_len - bitbuf.len() % code_len;
@@ -53,10 +52,7 @@ impl GenDedup {
       res.extend_from_bitslice(&synd.syndrome);
 
       bitptr += code_len;
-      // println!("{}", target_slice);
     }
-
-    println!("Deduped {} -> {} (bits)", bitbuf.len(), res.len());
     Ok((res, pad_len))
   }
 
@@ -88,7 +84,6 @@ impl GenDedup {
       bitptr += synd_len;
 
       let parity = self.code.encode(&base, synd);
-      // println!("{}", parity.erroneous);
       if bitptr == deduped.len() {
         res.extend_from_bitslice(&parity.erroneous[pad_len..]);
       } else {
@@ -107,9 +102,16 @@ mod tests {
   use super::*;
 
   #[test]
-  fn test_deg3() {
-    let mut gd = GenDedup::new(3).unwrap();
-    let deduped = gd.dedup(&[0u8, 0, 0, 0, 0, 0, 0]).unwrap();
-    println!("deduped: {}", deduped.0);
+  fn test_deg_3_to_8() {
+    let buf: Vec<u8> = (0u8..255).into_iter().collect();
+    for deg in 3..9 {
+      let mut gd = GenDedup::new(deg).unwrap();
+      let deduped = gd.dedup(&buf).unwrap();
+
+      let mut rev_gd = GenDedup::new(deg).unwrap();
+      let duped = rev_gd.dup(&deduped.0, deduped.1).unwrap();
+
+      assert_eq!(buf, duped);
+    }
   }
 }
