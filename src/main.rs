@@ -7,7 +7,7 @@ const BUFFER_SIZE: usize = 512 * 1024;
 
 fn proc(reader: &mut dyn Read, writer: &mut dyn Write) {
   let mut buf = [0u8; BUFFER_SIZE];
-  let deg = 6;
+  let deg = 8;
   let mut gd_enc = GenDedup::new(deg).unwrap();
   let mut gd_dec = GenDedup::new(deg).unwrap();
 

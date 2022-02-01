@@ -28,7 +28,10 @@ impl GenDedup {
   }
 
   pub fn dedup(&mut self, buf: &[u8]) -> Result<(BitVec<u8, Msb0>, usize), Error> {
+    // TODO: TODO:
     // TODO: Byte Alignment is needed
+    // TODO: Or maybe RS or byte-ordered codes are better
+    // TODO: TODO:
     let code_len = self.code.code_len;
     let bitbuf = BitSlice::<u8, Msb0>::from_slice(buf);
     let pad_len = code_len - bitbuf.len() % code_len;
