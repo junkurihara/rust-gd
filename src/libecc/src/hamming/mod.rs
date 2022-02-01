@@ -1,55 +1,10 @@
-use bitvec::prelude::*;
 mod constant;
 mod util;
 
-use super::{
-  error::*,
-  util::{bitdump, hexdump},
-};
+use super::{error::*, Code, Decoded, Encoded};
+use bitvec::prelude::*;
 use constant::POLYNOMIALS;
 use util::{get_residue, msb_to_u32, u8vec_to_msb};
-
-#[derive(Debug, Clone)]
-pub struct DecodedWord {
-  pub info: BitVec<u8, Msb0>,
-  pub syndrome: BitVec<u8, Msb0>,
-}
-
-impl DecodedWord {
-  pub fn dump_info(&self) -> String {
-    hexdump(self.info.as_raw_slice())
-  }
-  pub fn dump_syndrome(&self) -> String {
-    hexdump(self.syndrome.as_raw_slice())
-  }
-  pub fn bitdump_info(&self) -> String {
-    bitdump(self.info.as_bitslice())
-  }
-  pub fn bitdump_syndrome(&self) -> String {
-    bitdump(self.syndrome.as_bitslice())
-  }
-}
-
-#[derive(Debug, Clone)]
-pub struct EncodedWord {
-  pub erroneous: BitVec<u8, Msb0>,
-  pub no_error: BitVec<u8, Msb0>,
-}
-
-impl EncodedWord {
-  pub fn dump_errorneous(&self) -> String {
-    hexdump(self.erroneous.as_raw_slice())
-  }
-  pub fn dump_no_error(&self) -> String {
-    hexdump(self.no_error.as_raw_slice())
-  }
-  pub fn bitdump_errorneous(&self) -> String {
-    bitdump(self.erroneous.as_bitslice())
-  }
-  pub fn bitdump_no_error(&self) -> String {
-    bitdump(self.no_error.as_bitslice())
-  }
-}
 
 #[derive(Debug, Clone)]
 pub struct Hamming {
@@ -123,41 +78,49 @@ impl Hamming {
     }
     flipped
   }
+}
 
-  pub fn decode(&self, data: &BitSlice<u8, Msb0>) -> DecodedWord {
-    assert_eq!(data.len(), self.code_len);
+impl Code for Hamming {
+  type Slice = BitSlice<u8, Msb0>;
+  type Vector = BitVec<u8, Msb0>;
+
+  fn decode(&self, data: &Self::Slice) -> Result<Decoded<Self::Vector>> {
+    ensure!(data.len() == self.code_len, "Invalid data length");
 
     let syn = self.calc_syndrome(data);
     let no_error = self.one_bit_flip_by_syndrome(data, &syn);
     let info = (&no_error[0..self.info_len]).to_bitvec();
-    assert_eq!(info.len(), self.info_len);
-    assert_eq!(syn.len(), self.deg as usize);
+    ensure!(
+      info.len() == self.info_len && syn.len() == self.deg as usize,
+      "Invalid calc result"
+    );
 
-    DecodedWord {
+    Ok(Decoded::<Self::Vector> {
       // no_error: noerror,
       syndrome: syn,
       info,
-    }
+    })
   }
 
-  // TODO: result型にした方が良い
-  pub fn encode(&self, info: &BitSlice<u8, Msb0>, syndrome: &BitSlice<u8, Msb0>) -> EncodedWord {
-    assert_eq!(info.len(), self.info_len);
-    assert_eq!(syndrome.len(), self.deg as usize);
+  fn encode(&self, info: &Self::Slice, dev: &Self::Slice) -> Result<Encoded<Self::Vector>> {
+    ensure!(
+      info.len() == self.info_len && dev.len() == self.deg as usize,
+      "Invalid data length"
+    );
 
     let mut cw = info.to_bitvec();
     cw.extend_from_bitslice(&bitvec![u8, Msb0; 0; self.code_len - self.info_len]);
     let parity = self.calc_syndrome(&cw);
     let mut res = info.to_bitvec();
     res.extend_from_bitslice(&parity);
-    assert_eq!(res.len(), self.code_len);
-    let flipped = self.one_bit_flip_by_syndrome(&res, syndrome);
-    assert_eq!(flipped.len(), self.code_len);
+    ensure!(res.len() == self.code_len, "Invalid calc result");
+    let flipped = self.one_bit_flip_by_syndrome(&res, dev);
+    ensure!(flipped.len() == self.code_len, "Invalid error calculation");
 
-    EncodedWord {
-      erroneous: flipped,
-      no_error: res,
-    }
+    Ok(Encoded::<Self::Vector> {
+      errored: flipped,
+      codeword: res,
+    })
   }
 }
 
@@ -172,6 +135,8 @@ impl Hamming {
 //   1101 001 ]
 #[cfg(test)]
 mod tests {
+  use crate::{BitDump, HexDump};
+
   use super::*;
   // use constant::test_vectors::*;
 
@@ -181,47 +146,50 @@ mod tests {
     let hamming = Hamming::new(3).unwrap();
 
     let data: BitVec<u8, Msb0> = bitvec![u8, Msb0; 0; code_len];
-    let syndrome = hamming.decode(&data);
-    assert_eq!("0000", syndrome.bitdump_info());
-    assert_eq!("000", syndrome.bitdump_syndrome());
+    let syndrome = hamming.decode(data.as_bitslice()).unwrap();
+
+    assert_eq!("00", syndrome.info.hexdump().unwrap());
+    assert_eq!("00", syndrome.syndrome.hexdump().unwrap());
+    assert_eq!("0000", syndrome.info.bitdump());
+    assert_eq!("000", syndrome.syndrome.bitdump());
 
     let data: BitVec<u8, Msb0> = bitvec![u8, Msb0; 1; code_len];
-    let syndrome = hamming.decode(&data);
-    assert_eq!("1111", syndrome.bitdump_info());
-    assert_eq!("000", syndrome.bitdump_syndrome());
+    let syndrome = hamming.decode(data.as_bitslice()).unwrap();
+    assert_eq!("1111", syndrome.info.bitdump());
+    assert_eq!("000", syndrome.syndrome.bitdump());
 
     let data: BitVec<u8, Msb0> = bitvec![u8, Msb0; 1,0,1,1,1,1,0];
-    let syndrome = hamming.decode(&data);
-    assert_eq!("1001", syndrome.bitdump_info());
-    assert_eq!("110", syndrome.bitdump_syndrome());
+    let syndrome = hamming.decode(&data).unwrap();
+    assert_eq!("1001", syndrome.info.bitdump());
+    assert_eq!("110", syndrome.syndrome.bitdump());
 
     let data = bitvec![u8, Msb0; 1,1,0,0,1,1,1];
-    let syndrome = hamming.decode(&data);
-    assert_eq!("0100", syndrome.bitdump_info());
-    assert_eq!("101", syndrome.bitdump_syndrome());
+    let syndrome = hamming.decode(&data).unwrap();
+    assert_eq!("0100", syndrome.info.bitdump());
+    assert_eq!("101", syndrome.syndrome.bitdump());
 
     let data = bitvec![u8, Msb0; 0,0,0,0,1,0,1];
-    let syndrome = hamming.decode(&data);
-    assert_eq!("1000", syndrome.bitdump_info());
-    assert_eq!("101", syndrome.bitdump_syndrome());
+    let syndrome = hamming.decode(&data).unwrap();
+    assert_eq!("1000", syndrome.info.bitdump());
+    assert_eq!("101", syndrome.syndrome.bitdump());
 
     let data = bitvec![u8, Msb0; 1,0,0,0];
     let syndrome = bitvec![u8,Msb0; 0,0,0];
-    let parity = hamming.encode(&data, &syndrome);
-    assert_eq!("1000101", parity.bitdump_errorneous());
-    assert_eq!("1000101", parity.bitdump_no_error());
+    let parity = hamming.encode(&data, &syndrome).unwrap();
+    assert_eq!("1000101", parity.errored.bitdump());
+    assert_eq!("1000101", parity.codeword.bitdump());
 
     let data = bitvec![u8, Msb0; 1,0,1,0];
     let syndrome = bitvec![u8,Msb0; 1,1,0];
-    let parity = hamming.encode(&data, &syndrome);
-    assert_eq!("1000011", parity.bitdump_errorneous());
-    assert_eq!("1010011", parity.bitdump_no_error());
+    let parity = hamming.encode(&data, &syndrome).unwrap();
+    assert_eq!("1000011", parity.errored.bitdump());
+    assert_eq!("1010011", parity.codeword.bitdump());
 
     let data = bitvec![u8, Msb0; 1,0,0,0];
     let syndrome = bitvec![u8,Msb0; 1,0,1];
-    let parity = hamming.encode(&data, &syndrome);
-    assert_eq!("1000101", parity.bitdump_no_error());
-    assert_eq!("0000101", parity.bitdump_errorneous());
+    let parity = hamming.encode(&data, &syndrome).unwrap();
+    assert_eq!("1000101", parity.codeword.bitdump());
+    assert_eq!("0000101", parity.errored.bitdump());
   }
 
   /*

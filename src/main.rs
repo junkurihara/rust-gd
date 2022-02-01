@@ -1,7 +1,6 @@
-use std::io::{self, Read, Write};
-
-use libecc::hexdump;
+use libecc::HexDump;
 use rust_gd::GenDedup;
+use std::io::{self, Read, Write};
 
 const BUFFER_SIZE: usize = 512 * 1024;
 
@@ -19,13 +18,8 @@ fn proc(reader: &mut dyn Read, writer: &mut dyn Write) {
     // GD proc here
     if let Ok((deduped, pad_len)) = gd_enc.dedup(&buf[..n]) {
       // println!("{}", hexdump(deduped.as_raw_slice()));
-      let _ = writer.write(
-        format!(
-          "> Deduped (HexDump):\n> {}\n",
-          hexdump(deduped.as_raw_slice())
-        )
-        .as_bytes(),
-      );
+      let _ = writer
+        .write(format!("> Deduped (HexDump):\n> {}\n", deduped.hexdump().unwrap()).as_bytes());
       let dup = gd_dec.dup(&deduped, pad_len);
       let _ = writer
         .write(format!("> Duped:\n> {}", String::from_utf8(dup.unwrap()).unwrap()).as_bytes());

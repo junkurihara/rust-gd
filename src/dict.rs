@@ -32,7 +32,7 @@ impl BaseDict {
   pub fn get_id_or_base(
     &mut self,
     base: &BitSlice<u8, Msb0>,
-  ) -> Result<(Separator, BitVec<u8, Msb0>), Error> {
+  ) -> Result<(Separator, BitVec<u8, Msb0>)> {
     let mut res = BitVec::<u8, Msb0>::new();
     if let Some(id) = self.dict_base_to_id.get(base) {
       // println!("found base: id {:4X}", id); //: {}", bs_base);
@@ -44,10 +44,8 @@ impl BaseDict {
       // LRU
       let new_id = if self.dict_base_to_id.len() < self.dict_size {
         self.dict_base_to_id.len()
-      } else if let Ok(v) = self.remove_lru_entry_get_freed_id() {
-        v
       } else {
-        bail!("Invalid dictionary");
+        self.remove_lru_entry_get_freed_id()?
       };
       self.dict_base_to_id.insert(base.to_bitvec(), new_id);
       self.dict_id_to_base.insert(new_id, base.to_bitvec());
@@ -61,7 +59,7 @@ impl BaseDict {
     &mut self,
     base_or_id: &BitSlice<u8, Msb0>,
     sep: Separator,
-  ) -> Result<BitVec<u8, Msb0>, Error> {
+  ) -> Result<BitVec<u8, Msb0>> {
     match sep {
       Separator::Deduped => {
         // base_or_id is id
@@ -74,11 +72,11 @@ impl BaseDict {
           dst.set(*src);
         }
 
-        let base = if let Some(b) = self.dict_id_to_base.get(&id) {
-          b
-        } else {
-          bail!("Invalid dictionary");
-        };
+        let base = self
+          .dict_id_to_base
+          .get(&id)
+          .ok_or(())
+          .map_err(|_| anyhow!("Invalid dictionary"))?;
         self.dict_base_to_id.to_back(base); // update internal linked list
 
         Ok(base.to_bitvec())
@@ -88,11 +86,10 @@ impl BaseDict {
         // base_or_id is base
         let new_id = if self.dict_base_to_id.len() < self.dict_size {
           self.dict_base_to_id.len()
-        } else if let Ok(v) = self.remove_lru_entry_get_freed_id() {
-          v
         } else {
-          bail!("Invalid dictionary");
+          self.remove_lru_entry_get_freed_id()?
         };
+
         self.dict_base_to_id.insert(base_or_id.to_bitvec(), new_id);
         self.dict_id_to_base.insert(new_id, base_or_id.to_bitvec());
         Ok(base_or_id.to_bitvec())
@@ -100,23 +97,24 @@ impl BaseDict {
     }
   }
 
-  fn remove_lru_entry_get_freed_id(&mut self) -> Result<usize, Error> {
+  fn remove_lru_entry_get_freed_id(&mut self) -> Result<usize> {
     // 1. pop LRU entry from linked hash map (base-to-id) and get dropped id
-    let (k, v) = if let Some(p) = self.dict_base_to_id.pop_front() {
-      p
-    } else {
-      bail!("Invalid dictionary");
-    };
+    let (k, v) = self
+      .dict_base_to_id
+      .pop_front()
+      .ok_or(())
+      .map_err(|_| anyhow!("Invalid dictionary"))?;
+
     // 2. drop entry from hash map (id-to-base)
-    let (vr, kr) = if let Some(p) = self.dict_id_to_base.remove_entry(&v) {
-      p
-    } else {
-      bail!("Invalid dictionary");
-    };
+    let (vr, kr) = self
+      .dict_id_to_base
+      .remove_entry(&v)
+      .ok_or(())
+      .map_err(|_| anyhow!("Invalid dictionary"))?;
+
     // 3. return the id.
-    if kr != k || vr != v {
-      bail!("Failed to remove...Broken dictionary");
-    }
+    ensure!(kr == k && vr == v, "Failed to remove...Broken dictionary");
+
     Ok(v)
   }
 }

@@ -15,19 +15,16 @@ pub struct GenDedup {
 }
 
 impl GenDedup {
-  pub fn new(deg: u32) -> Result<Self, Error> {
-    if let Ok(code) = Hamming::new(deg) {
-      // TODO: tentative, dict_size should be fixed size like 8bits in most cases
-      // TODO: Also must be known to the receiver, so init params must be passed beforehand
-      let dict_size = code.info_len;
-      let base_dict = BaseDict::new(dict_size);
-      Ok(GenDedup { code, base_dict })
-    } else {
-      bail!("Failed to instantiate associated Hamming code");
-    }
+  pub fn new(deg: u32) -> Result<Self> {
+    let code = Hamming::new(deg)?;
+    // TODO: tentative, dict_size should be fixed size like 8bits in most cases
+    // TODO: Also must be known to the receiver, so init params must be passed beforehand
+    let dict_size = code.info_len;
+    let base_dict = BaseDict::new(dict_size);
+    Ok(GenDedup { code, base_dict })
   }
 
-  pub fn dedup(&mut self, buf: &[u8]) -> Result<(BitVec<u8, Msb0>, usize), Error> {
+  pub fn dedup(&mut self, buf: &[u8]) -> Result<(BitVec<u8, Msb0>, usize)> {
     // TODO: TODO:
     // TODO: Byte Alignment is needed
     // TODO: Or maybe RS or byte-ordered codes are better
@@ -46,7 +43,7 @@ impl GenDedup {
       } else {
         &bitbuf[bitptr..bitptr + code_len]
       };
-      let synd = self.code.decode(target_slice);
+      let synd = self.code.decode(target_slice)?;
 
       // write result and update dict
       let (sep, id_or_base) = self.base_dict.get_id_or_base(&synd.info).unwrap();
@@ -78,19 +75,15 @@ impl GenDedup {
         Separator::Deduped => (&deduped[bitptr..bitptr + id_bitlen], id_bitlen),
       };
       bitptr += step;
-      let base = if let Ok(b) = self.base_dict.get_base(base_or_id, sep) {
-        b
-      } else {
-        bail!("Invalid dictionary")
-      };
+      let base = self.base_dict.get_base(base_or_id, sep)?;
       let synd = &deduped[bitptr..bitptr + synd_len];
       bitptr += synd_len;
 
-      let parity = self.code.encode(&base, synd);
+      let parity = self.code.encode(&base, synd)?;
       if bitptr == deduped.len() {
-        res.extend_from_bitslice(&parity.erroneous[pad_len..]);
+        res.extend_from_bitslice(&parity.errored[pad_len..]);
       } else {
-        res.extend_from_bitslice(&parity.erroneous);
+        res.extend_from_bitslice(&parity.errored);
       }
     }
     assert_eq!(bitptr, deduped.len());
