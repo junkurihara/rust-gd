@@ -1,5 +1,5 @@
 [package]
-name = "lib_hamming"
+name = "libecc"
 version = "0.1.0"
 edition = "2021"
 

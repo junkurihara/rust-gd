@@ -6,7 +6,7 @@ use crate::dict::BaseDict;
 use crate::error::*;
 use crate::separator::Separator;
 use bitvec::prelude::*;
-use lib_hamming::*;
+use libecc::*;
 
 #[derive(Debug, Clone)]
 pub struct GenDedup {

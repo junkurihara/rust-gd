@@ -1,6 +1,6 @@
 use std::io::{self, Read, Write};
 
-use lib_hamming::hexdump;
+use libecc::hexdump;
 use rust_gd::GenDedup;
 
 const BUFFER_SIZE: usize = 512 * 1024;
