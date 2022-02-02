@@ -1,4 +1,3 @@
-// use crate::error::*;
 use bitvec::prelude::*;
 
 pub fn u32_to_u8vec(num: &u32) -> Vec<u8> {
@@ -31,6 +30,7 @@ pub fn msb_to_u32(bv: &BitSlice<u8, Msb0>) -> u32 {
   r
 }
 
+#[allow(dead_code)]
 pub fn get_residue(num: &BitSlice<u8, Msb0>, poly: &BitSlice<u8, Msb0>) -> BitVec<u8, Msb0> {
   let first_one = poly.first_one().unwrap();
   let deg = poly.len() - first_one - 1;
@@ -49,6 +49,7 @@ pub fn get_residue(num: &BitSlice<u8, Msb0>, poly: &BitSlice<u8, Msb0>) -> BitVe
   res[res.len() - deg..].to_bitvec()
 }
 
+#[allow(dead_code)]
 fn get_residue_bits(
   num: &BitSlice<u8, Msb0>,
   poly: &BitSlice<u8, Msb0>,

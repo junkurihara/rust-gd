@@ -9,7 +9,7 @@ pub fn hexdump_bitslice<T: BitStore, O: BitOrder>(bs: &BitSlice<T, O>) -> Result
   res.extend_from_bitslice(bs);
   let (pfx, mid, sfx) = unsafe { res.align_to::<u8>() };
   ensure!(
-    pfx.len() == 0 && mid.len() % 8 == 0 && sfx.len() == 0,
+    pfx.is_empty() && mid.len() % 8 == 0 && sfx.is_empty(),
     "Invalid bitslice"
   );
 

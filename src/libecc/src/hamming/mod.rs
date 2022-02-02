@@ -3,65 +3,46 @@ mod util;
 
 use super::{error::*, Code, Decoded, Encoded};
 use bitvec::prelude::*;
-use constant::POLYNOMIALS;
-use util::{get_residue, msb_to_u32, u8vec_to_msb};
+use constant::{ERROR_POS_TO_SYNDROME, SYNDROME_TO_ERROR_POS};
+use util::{msb_to_u32, u32_to_msb};
 
 #[derive(Debug, Clone)]
 pub struct Hamming {
-  pub deg: u32,                            // m
-  pub code_len: usize,                     // n
-  pub info_len: usize,                     // k
-  pub syndrome_tbl: Vec<BitVec<u8, Msb0>>, // error vec -> syndrome
-  pub syndrome_tbl_rev: Vec<u32>, // syndrome (expressed in usize msb) -> one error bit idx, idx=0 then no error
+  pub deg: u32,                        // m
+  pub code_len: usize,                 // n
+  pub info_len: usize,                 // k
+  pub error_pos_to_syndrome: Vec<u32>, // error position -> syndrome value
+  pub syndrome_to_error_pos: Vec<u32>, // syndrome (expressed in usize msb) -> one error bit idx, idx=0 then no error
 }
 
 impl Hamming {
   pub fn new(deg: u32) -> Result<Self, Error> {
-    let poly = if let Some(p) = POLYNOMIALS.get(&deg) {
-      u8vec_to_msb(*p)
-    } else {
-      bail!("Unsupported degree");
-    };
     let code_len = (2u32.pow(deg) - 1) as usize;
     let info_len = code_len - deg as usize;
-    let synd_len = deg as usize;
 
-    let mut syndrome_tbl = vec![bitvec![u8, Msb0; 0; synd_len]; code_len + 1];
-    let mut syndrome_tbl_rev: Vec<u32> = (0..code_len + 1).into_iter().map(|_| 0).collect();
-    for pos in 0..code_len {
-      //let bv = &(u32_to_msb(&(1 << pos)))[32 - code_len as usize..];
-      let bv = &{
-        let mut base = bitvec![u8, Msb0; 0; code_len];
-        base.set(pos, true);
-        base
-      };
-      let res = get_residue(bv, &poly);
-      let res_val = msb_to_u32(&res);
-      syndrome_tbl[pos + 1] = (&res[res.len() - synd_len..]).to_bitvec();
-      syndrome_tbl_rev[res_val as usize] = pos as u32 + 1;
-    }
-
+    let error_pos_to_syndrome = ERROR_POS_TO_SYNDROME.get(&deg).unwrap().to_vec();
+    let syndrome_to_error_pos = SYNDROME_TO_ERROR_POS.get(&deg).unwrap().to_vec();
     Ok(Hamming {
       code_len,
       info_len,
       deg,
-      syndrome_tbl,
-      syndrome_tbl_rev,
+      error_pos_to_syndrome,
+      syndrome_to_error_pos,
     })
   }
 
   fn calc_syndrome(&self, cw: &BitSlice<u8, Msb0>) -> BitVec<u8, Msb0> {
-    cw.iter().enumerate().fold(
-      bitvec![u8, Msb0; 0; self.code_len - self.info_len],
-      |acc, (pos, b)| {
+    let syndrome_len = self.code_len - self.info_len;
+    cw.iter()
+      .enumerate()
+      .fold(bitvec![u8, Msb0; 0; syndrome_len], |acc, (pos, b)| {
         if *b {
-          let pos_syn = &self.syndrome_tbl[pos + 1];
+          let pos_syn = &u32_to_msb(&self.error_pos_to_syndrome[pos + 1])[32 - syndrome_len..];
           acc ^ pos_syn
         } else {
           acc
         }
-      },
-    )
+      })
   }
 
   fn one_bit_flip_by_syndrome(
@@ -72,9 +53,9 @@ impl Hamming {
     let mut flipped = data.to_bitvec();
     let syn_val = msb_to_u32(syn);
     if syn_val > 0 {
-      let error_pos = self.syndrome_tbl_rev[syn_val as usize] as usize;
-      let pos_val = flipped[error_pos - 1];
-      flipped.set(error_pos - 1, !pos_val);
+      let error_pos = self.syndrome_to_error_pos[syn_val as usize] as usize - 1;
+      let pos_val = flipped[error_pos];
+      flipped.set(error_pos, !pos_val);
     }
     flipped
   }
@@ -96,7 +77,6 @@ impl Code for Hamming {
     );
 
     Ok(Decoded::<Self::Vector> {
-      // no_error: noerror,
       syndrome: syn,
       info,
     })
@@ -136,9 +116,10 @@ impl Code for Hamming {
 #[cfg(test)]
 mod tests {
   use crate::{BitDump, HexDump};
+  use constant::POLYNOMIALS;
+  use util::{get_residue, u8vec_to_msb};
 
   use super::*;
-  // use constant::test_vectors::*;
 
   #[test]
   fn test_deg3_bits() {
@@ -147,7 +128,6 @@ mod tests {
 
     let data: BitVec<u8, Msb0> = bitvec![u8, Msb0; 0; code_len];
     let syndrome = hamming.decode(data.as_bitslice()).unwrap();
-
     assert_eq!("00", syndrome.info.hexdump().unwrap());
     assert_eq!("00", syndrome.syndrome.hexdump().unwrap());
     assert_eq!("0000", syndrome.info.bitdump());
@@ -190,6 +170,34 @@ mod tests {
     let parity = hamming.encode(&data, &syndrome).unwrap();
     assert_eq!("1000101", parity.codeword.bitdump());
     assert_eq!("0000101", parity.errored.bitdump());
+  }
+
+  #[test]
+  fn test_validate_table() {
+    for deg in 3..11 {
+      let code_len = (2u32.pow(deg) - 1) as usize;
+
+      let error_pos_to_syndrome = *ERROR_POS_TO_SYNDROME.get(&deg).unwrap();
+      let syndrome_to_error_pos = *SYNDROME_TO_ERROR_POS.get(&deg).unwrap();
+
+      let poly = u8vec_to_msb(*POLYNOMIALS.get(&deg).unwrap());
+      (0usize..code_len + 1).for_each(|error_pos| {
+        let mut error = bitvec![u8, Msb0; 0; code_len];
+        if error_pos > 0 {
+          error.set(error_pos - 1, true);
+        };
+        let syndrome = get_residue(&error, &poly);
+        let syndrome_value = msb_to_u32(&syndrome) as usize;
+
+        assert_eq!(error_pos_to_syndrome[error_pos] as usize, syndrome_value);
+        assert_eq!(error_pos, syndrome_to_error_pos[syndrome_value] as usize);
+
+        let syndrome_bit = u32_to_msb(&(syndrome_value as u32));
+        let syndrome_val2 = msb_to_u32(&syndrome_bit);
+        assert_eq!(syndrome, &syndrome_bit.as_bitslice()[32 - syndrome.len()..]);
+        assert_eq!(syndrome_val2, syndrome_value as u32);
+      });
+    }
   }
 
   /*

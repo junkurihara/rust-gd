@@ -7,16 +7,16 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug unit tests in library 'lib_hamming'",
+      "name": "Debug unit tests in library 'libecc'",
       "cargo": {
         "args": [
           "test",
           "--no-run",
           "--lib",
-          "--package=lib_hamming"
+          "--package=libecc"
         ],
         "filter": {
-          "name": "lib_hamming",
+          "name": "libecc",
           "kind": "lib"
         }
       },
