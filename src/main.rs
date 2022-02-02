@@ -1,3 +1,5 @@
+// THIS IS A SAMPLE CODE TO USE GD LIB
+
 use libecc::HexDump;
 use rust_gd::GenDedup;
 use std::io::{self, Read, Write};
