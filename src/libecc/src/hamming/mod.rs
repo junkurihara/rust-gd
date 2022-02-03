@@ -77,8 +77,8 @@ impl Code for Hamming {
     );
 
     Ok(Decoded::<Self::Vector> {
-      syndrome: syn,
-      info,
+      deviation: syn,
+      base: info,
     })
   }
 
@@ -128,30 +128,30 @@ mod tests {
 
     let data: BitVec<u8, Msb0> = bitvec![u8, Msb0; 0; code_len];
     let syndrome = hamming.decode(data.as_bitslice()).unwrap();
-    assert_eq!("00", syndrome.info.hexdump().unwrap());
-    assert_eq!("00", syndrome.syndrome.hexdump().unwrap());
-    assert_eq!("0000", syndrome.info.bitdump());
-    assert_eq!("000", syndrome.syndrome.bitdump());
+    assert_eq!("00", syndrome.base.hexdump().unwrap());
+    assert_eq!("00", syndrome.deviation.hexdump().unwrap());
+    assert_eq!("0000", syndrome.base.bitdump());
+    assert_eq!("000", syndrome.deviation.bitdump());
 
     let data: BitVec<u8, Msb0> = bitvec![u8, Msb0; 1; code_len];
     let syndrome = hamming.decode(data.as_bitslice()).unwrap();
-    assert_eq!("1111", syndrome.info.bitdump());
-    assert_eq!("000", syndrome.syndrome.bitdump());
+    assert_eq!("1111", syndrome.base.bitdump());
+    assert_eq!("000", syndrome.deviation.bitdump());
 
     let data: BitVec<u8, Msb0> = bitvec![u8, Msb0; 1,0,1,1,1,1,0];
     let syndrome = hamming.decode(&data).unwrap();
-    assert_eq!("1001", syndrome.info.bitdump());
-    assert_eq!("110", syndrome.syndrome.bitdump());
+    assert_eq!("1001", syndrome.base.bitdump());
+    assert_eq!("110", syndrome.deviation.bitdump());
 
     let data = bitvec![u8, Msb0; 1,1,0,0,1,1,1];
     let syndrome = hamming.decode(&data).unwrap();
-    assert_eq!("0100", syndrome.info.bitdump());
-    assert_eq!("101", syndrome.syndrome.bitdump());
+    assert_eq!("0100", syndrome.base.bitdump());
+    assert_eq!("101", syndrome.deviation.bitdump());
 
     let data = bitvec![u8, Msb0; 0,0,0,0,1,0,1];
     let syndrome = hamming.decode(&data).unwrap();
-    assert_eq!("1000", syndrome.info.bitdump());
-    assert_eq!("101", syndrome.syndrome.bitdump());
+    assert_eq!("1000", syndrome.base.bitdump());
+    assert_eq!("101", syndrome.deviation.bitdump());
 
     let data = bitvec![u8, Msb0; 1,0,0,0];
     let syndrome = bitvec![u8,Msb0; 0,0,0];

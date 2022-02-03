@@ -18,8 +18,8 @@ pub trait Code {
 
 #[derive(Debug, Clone)]
 pub struct Decoded<T> {
-  pub info: T,
-  pub syndrome: T,
+  pub base: T,
+  pub deviation: T,
 }
 
 #[derive(Debug, Clone)]

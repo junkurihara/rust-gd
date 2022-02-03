@@ -58,13 +58,13 @@ impl GenDedup {
           &buf[byte_ptr..byte_ptr + self.chunk_bytelen]
         }
       });
-      let synd = self.code.decode(target_bitslice.as_bitslice())?;
+      let decoded = self.code.decode(target_bitslice.as_bitslice())?;
 
       // write result and update dict
-      let (sep, id_or_base) = self.base_dict.get_id_or_base(&synd.info).unwrap();
+      let (sep, id_or_base) = self.base_dict.get_id_or_base(&decoded.base).unwrap();
       res.extend_from_bitslice(&sep.bv());
       res.extend_from_bitslice(&id_or_base);
-      res.extend_from_bitslice(&synd.syndrome);
+      res.extend_from_bitslice(&decoded.deviation);
 
       byte_ptr += self.chunk_bytelen;
     }
@@ -99,11 +99,11 @@ impl GenDedup {
       let synd = &deduped[bitptr..bitptr + synd_len];
       bitptr += synd_len;
 
-      let parity = self.code.encode(&base, synd)?;
+      let encoded = self.code.encode(&base, synd)?;
       let target_bitslice = if bitptr == deduped.len() {
-        &parity.errored[code_len - self.chunk_bytelen * 8 + last_chunk_pad_bytelen * 8..]
+        &encoded.errored[code_len - self.chunk_bytelen * 8 + last_chunk_pad_bytelen * 8..]
       } else {
-        &parity.errored[code_len - self.chunk_bytelen * 8..]
+        &encoded.errored[code_len - self.chunk_bytelen * 8..]
       };
       ensure!(target_bitslice.len() % 8 == 0, "Invalid target in dup");
       res.extend_from_bitslice(target_bitslice);
