@@ -1,4 +1,4 @@
-name: Rust
+name: Unit test for rust-gd
 
 on:
   push:
