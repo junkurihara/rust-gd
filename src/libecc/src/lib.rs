@@ -2,6 +2,7 @@ mod error;
 mod util;
 
 mod hamming;
+mod rs;
 
 use crate::error::*;
 use bitvec::prelude::*;
