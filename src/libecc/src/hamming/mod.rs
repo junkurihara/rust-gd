@@ -9,22 +9,22 @@ use util::{msb_to_u32, u32_to_msb};
 #[derive(Debug, Clone)]
 pub struct Hamming {
   pub deg: u32,                        // m
-  pub code_len: usize,                 // n
-  pub info_len: usize,                 // k
+  pub code_bit_len: usize,             // n
+  pub info_bit_len: usize,             // k
   pub error_pos_to_syndrome: Vec<u32>, // error position -> syndrome value
   pub syndrome_to_error_pos: Vec<u32>, // syndrome (expressed in usize msb) -> one error bit idx, idx=0 then no error
 }
 
 impl Hamming {
-  pub fn new(deg: u32) -> Result<Self, Error> {
+  pub fn new(deg: u32) -> Result<Self> {
     let code_len = (2u32.pow(deg) - 1) as usize;
     let info_len = code_len - deg as usize;
 
     let error_pos_to_syndrome = ERROR_POS_TO_SYNDROME.get(&deg).unwrap().to_vec();
     let syndrome_to_error_pos = SYNDROME_TO_ERROR_POS.get(&deg).unwrap().to_vec();
     Ok(Hamming {
-      code_len,
-      info_len,
+      code_bit_len: code_len,
+      info_bit_len: info_len,
       deg,
       error_pos_to_syndrome,
       syndrome_to_error_pos,
@@ -32,7 +32,7 @@ impl Hamming {
   }
 
   fn calc_syndrome(&self, cw: &BitSlice<u8, Msb0>) -> BitVec<u8, Msb0> {
-    let syndrome_len = self.code_len - self.info_len;
+    let syndrome_len = self.code_bit_len - self.info_bit_len;
     cw.iter()
       .enumerate()
       .fold(bitvec![u8, Msb0; 0; syndrome_len], |acc, (pos, b)| {
@@ -66,13 +66,13 @@ impl Code for Hamming {
   type Vector = BitVec<u8, Msb0>;
 
   fn decode(&self, data: &Self::Slice) -> Result<Decoded<Self::Vector>> {
-    ensure!(data.len() == self.code_len, "Invalid data length");
+    ensure!(data.len() == self.code_bit_len, "Invalid data length");
 
     let syn = self.calc_syndrome(data);
     let no_error = self.one_bit_flip_by_syndrome(data, &syn);
-    let info = (&no_error[0..self.info_len]).to_bitvec();
+    let info = (&no_error[0..self.info_bit_len]).to_bitvec();
     ensure!(
-      info.len() == self.info_len && syn.len() == self.deg as usize,
+      info.len() == self.info_bit_len && syn.len() == self.deg as usize,
       "Invalid calc result"
     );
 
@@ -84,18 +84,21 @@ impl Code for Hamming {
 
   fn encode(&self, info: &Self::Slice, dev: &Self::Slice) -> Result<Encoded<Self::Vector>> {
     ensure!(
-      info.len() == self.info_len && dev.len() == self.deg as usize,
+      info.len() == self.info_bit_len && dev.len() == self.deg as usize,
       "Invalid data length"
     );
 
     let mut cw = info.to_bitvec();
-    cw.extend_from_bitslice(&bitvec![u8, Msb0; 0; self.code_len - self.info_len]);
+    cw.extend_from_bitslice(&bitvec![u8, Msb0; 0; self.code_bit_len - self.info_bit_len]);
     let parity = self.calc_syndrome(&cw);
     let mut res = info.to_bitvec();
     res.extend_from_bitslice(&parity);
-    ensure!(res.len() == self.code_len, "Invalid calc result");
+    ensure!(res.len() == self.code_bit_len, "Invalid calc result");
     let flipped = self.one_bit_flip_by_syndrome(&res, dev);
-    ensure!(flipped.len() == self.code_len, "Invalid error calculation");
+    ensure!(
+      flipped.len() == self.code_bit_len,
+      "Invalid error calculation"
+    );
 
     Ok(Encoded::<Self::Vector> {
       errored: flipped,

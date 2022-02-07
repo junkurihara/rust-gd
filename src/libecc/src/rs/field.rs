@@ -6,7 +6,8 @@
 use core::iter::{Product, Sum};
 use core::ops::{Add, Div, Mul, Sub};
 
-const ORDER: usize = 256;
+pub const ORDER: usize = 256;
+pub const ROOT: u8 = 0x02;
 
 // LOG_TABLE[i] = log_{alpha} i, the degree of power over alpha
 // LOG_TABLE[0] is virtually 0 for simplicity
@@ -106,6 +107,23 @@ impl Sum for GF256 {
 impl Product for GF256 {
   fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
     iter.fold(Self(1), |acc, x| acc * x)
+  }
+}
+
+impl GF256 {
+  pub fn pow(self, exp: isize) -> Self {
+    if self.0 == 0 {
+      Self(0)
+    } else {
+      let log_x = LOG_TABLE[self.0 as usize] as usize;
+      if exp > 0 {
+        Self(EXP_TABLE[(log_x * (exp as usize % (ORDER - 1))) % (ORDER - 1)])
+      } else {
+        let exp_abs = exp.abs() as usize;
+        let p = (ORDER - 1) - exp_abs % (ORDER - 1);
+        Self(EXP_TABLE[(p * log_x) % (ORDER - 1)])
+      }
+    }
   }
 }
 
@@ -213,5 +231,21 @@ mod tests {
   fn product_works() {
     let values = vec![GF256(1), GF256(1), GF256(4)];
     assert_eq!(values.into_iter().product::<GF256>().0, 4);
+  }
+
+  #[test]
+  fn power_works() {
+    let answers = vec![
+      vec![GF256(0), GF256(1), GF256(1), GF256(1), GF256(1)],
+      vec![GF256(0), GF256(1), GF256(2), GF256(3), GF256(4)],
+      vec![GF256(0), GF256(1), GF256(4), GF256(5), GF256(16)],
+    ];
+    answers.iter().enumerate().for_each(|(i, v)| {
+      v.iter()
+        .enumerate()
+        .for_each(|(j, u)| assert_eq!(GF256(j as u8).pow(i as isize), *u));
+    });
+    assert_eq!(GF256(4).pow(-1), GF256(71));
+    assert_eq!(GF256(4) * GF256(71), GF256(1));
   }
 }

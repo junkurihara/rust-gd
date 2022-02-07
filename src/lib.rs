@@ -23,8 +23,8 @@ impl GenDedup {
     let dict_size = dict_size as usize; //code.info_len;
     let base_dict = BaseDict::new(dict_size);
 
-    let chunk_bytelen = if code.code_len >= 8 {
-      (code.code_len - code.code_len % 8) / 8
+    let chunk_bytelen = if code.code_bit_len >= 8 {
+      (code.code_bit_len - code.code_bit_len % 8) / 8
     } else {
       bail!("Insufficient code length");
     };
@@ -39,7 +39,7 @@ impl GenDedup {
   pub fn dedup(&mut self, buf: &[u8]) -> Result<(BitVec<u8, Msb0>, usize)> {
     // Currently Byte Alignment is employed, i.e., message is always in bytes and some padding of < 8bits is applied;
     // TODO: Or maybe RS or byte-ordered codes are better
-    let code_len = self.code.code_len;
+    let code_len = self.code.code_bit_len;
 
     let last_chunk_pad_bytelen = self.chunk_bytelen - buf.len() % self.chunk_bytelen;
     let code_pad_len = code_len - self.chunk_bytelen * 8;
@@ -77,8 +77,8 @@ impl GenDedup {
     deduped: &BitSlice<u8, Msb0>,
     last_chunk_pad_bytelen: usize,
   ) -> Result<Vec<u8>, Error> {
-    let code_len = self.code.code_len;
-    let info_len = self.code.info_len;
+    let code_len = self.code.code_bit_len;
+    let info_len = self.code.info_bit_len;
     let synd_len = code_len - info_len;
     let id_bitlen = self.base_dict.get_id_bitlen();
     let mut res = BitVec::<u8, Msb0>::new();
