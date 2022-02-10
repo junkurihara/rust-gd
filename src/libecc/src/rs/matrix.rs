@@ -101,7 +101,7 @@ where
         .map(|row| {
           let x = row
             .clone()
-            .subvec(self.row_size(), self.row_size() + self.col_size());
+            .subvec(self.col_size(), self.col_size() + self.row_size());
           x
         })
         .collect(),
