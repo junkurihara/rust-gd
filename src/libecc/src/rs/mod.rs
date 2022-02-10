@@ -64,13 +64,27 @@ impl Code for ReedSolomon {
 
   fn decode(&self, data: &Self::Slice) -> Result<Decoded<Self::Vector>> {
     ensure!(data.len() == self.code_symbol_len, "Invalid data length");
+    // note that the first info_symbol_len symbols are assumed to be error-free
+    // c = uG = u[I P] = [u uP]
+    let error_free_message = &data[0..self.info_symbol_len];
+    let error_free_dev = vec![0u8; self.deviation_symbol_len];
 
-    // c = uG
+    let error_free_encoded = if let Ok(v) = self.encode(error_free_message, &error_free_dev) {
+      v
+    } else {
+      bail!("Failed to process data");
+    };
 
-    Ok(Decoded::<Self::Vector> {
-      base: vec![],
-      deviation: vec![],
-    })
+    let base = (&error_free_encoded.codeword[0..self.info_symbol_len]).to_vec();
+
+    let errored_deviation = &data[self.info_symbol_len..];
+    let deviation = (&error_free_encoded.codeword[self.info_symbol_len..])
+      .iter()
+      .zip(errored_deviation.iter())
+      .map(|(v, w)| (GF256(*v) + GF256(*w)).0)
+      .collect();
+
+    Ok(Decoded::<Self::Vector> { base, deviation })
   }
 
   fn encode(&self, message: &Self::Slice, dev: &Self::Slice) -> Result<Encoded<Self::Vector>> {
@@ -120,6 +134,17 @@ mod tests {
     let dev = &[0u8; N - K];
     let encoded = rs.encode(&message, dev).unwrap();
     let decoded = rs.decode(&encoded.errored).unwrap();
+
+    assert_eq!(message, decoded.base);
+    assert_eq!(dev.to_vec(), decoded.deviation);
+
+    let message = (0u8..K as u8).map(|x| x).collect::<Vec<u8>>();
+    let dev = (0u8..(N - K) as u8).rev().map(|x| x).collect::<Vec<u8>>();
+    let encoded = rs.encode(&message, &dev).unwrap();
+    let decoded = rs.decode(&encoded.errored).unwrap();
+
+    assert_eq!(message, decoded.base);
+    assert_eq!(dev, decoded.deviation);
   }
 
   #[test]
