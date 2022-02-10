@@ -8,7 +8,8 @@ pub struct ReedSolomon {
   pub code_symbol_len: usize,            // n over GF(2^8)
   pub info_symbol_len: usize,            // k over GF(2^8)
   pub deviation_symbol_len: usize,       // deviation length over GF(2^8)
-  pub generator_matrix: Vec<Vec<GF256>>, // generator matrix as a look-up table for encoding
+  pub generator_matrix: Vec<Vec<GF256>>, // generator matrix G as a look-up table for encoding
+  pub inverse_matrix: Vec<Vec<GF256>>, // inverse matrix M satisfying MG = [I P], where I is a k x k identity matrix
 }
 
 impl ReedSolomon {
@@ -27,8 +28,9 @@ impl ReedSolomon {
     Ok(ReedSolomon {
       code_symbol_len,
       info_symbol_len,
-      deviation_symbol_len: code_symbol_len - info_symbol_len, // TODO: tentatively redundancy length
+      deviation_symbol_len: code_symbol_len - info_symbol_len, // redundancy length
       generator_matrix,
+      inverse_matrix: vec![vec![]], // TODO:
     })
   }
 }
@@ -66,15 +68,15 @@ impl Code for ReedSolomon {
       },
     );
     let codeword = codeword_gf256.iter().map(|x| x.0).collect();
-    // TODO: Deviation is defined as the difference between error-free codeword and erroneous one at the redundancy part of the codeword.
+    // Deviation is defined as the difference between error-free codeword and erroneous one at the redundancy part of the codeword.
     let errored: Vec<u8> = codeword_gf256
       .into_iter()
       .enumerate()
       .map(|(idx, x)| {
-        if idx < self.deviation_symbol_len {
+        if idx < self.info_symbol_len {
           x.0
         } else {
-          (x + GF256(dev[idx - self.deviation_symbol_len])).0
+          (x + GF256(dev[idx - self.info_symbol_len])).0
         }
       })
       .collect();
@@ -98,6 +100,36 @@ mod tests {
     let encoded = rs.encode(message, dev).unwrap();
     assert_eq!(encoded.codeword, vec![0u8; N]);
     assert_eq!(encoded.errored, vec![0u8; N]);
+
+    let message = &[1u8; K];
+    let dev = &[1u8; N - K];
+    let encoded = rs.encode(message, dev).unwrap();
+    let ans_cw = rs.generator_matrix.iter().fold(vec![0u8; N], |acc, v| {
+      v.iter().zip(acc.iter()).map(|(x, y)| x.0 ^ y).collect()
+    });
+    let ans_err: Vec<u8> = ans_cw
+      .iter()
+      .enumerate()
+      .map(|(i, v)| if i < K { *v } else { *v ^ dev[i - K] })
+      .collect();
+    assert_eq!(encoded.codeword, ans_cw);
+    assert_eq!(encoded.errored, ans_err);
+
+    let message = (0u8..K as u8).map(|x| x).collect::<Vec<u8>>();
+    let dev = &[0u8; N - K];
+    let encoded = rs.encode(&message, dev).unwrap();
+    let ans_cw = rs
+      .generator_matrix
+      .iter()
+      .enumerate()
+      .fold(vec![0u8; N], |acc, (row_idx, v)| {
+        v.iter()
+          .zip(acc.iter())
+          .map(|(x, y)| (GF256(row_idx as u8) * x.clone()).0 ^ y)
+          .collect()
+      });
+    assert_eq!(encoded.codeword, ans_cw);
+    assert_eq!(encoded.errored, ans_cw);
   }
 
   #[test]
