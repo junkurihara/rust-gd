@@ -1,4 +1,6 @@
 mod field;
+mod matrix;
+mod vectorized;
 
 use super::{error::*, Code, Decoded, Encoded};
 use field::{GF256, ORDER, ROOT};
@@ -40,6 +42,8 @@ impl Code for ReedSolomon {
   type Vector = Vec<u8>;
 
   fn decode(&self, data: &Self::Slice) -> Result<Decoded<Self::Vector>> {
+    ensure!(data.len() == self.code_symbol_len, "Invalid data length");
+
     Ok(Decoded::<Self::Vector> {
       base: vec![],
       deviation: vec![],
