@@ -12,14 +12,33 @@ Currently, the very basic of Generalized Deduplication algorithm is being implem
 
 Our implementation is based on:
 
-- Hamming codes of `(7, 4)`, `(15, 11)`, `(31, 26)`, `(63, 57)`, `(127, 120)`, `(255, 247)` ...
+- Hamming codes of `(2^m - 1, 2^m - m - 1)` for degree `m = 3, ..., 11`.
+
+- Reed-Solomon codes over `GF(256)` (basic library was implemented, not usable to execute GD yet). In order to utilize RS code, which is *non-perfect* code, for GD, the following method is supposed.
+
+  - Let `c = [x_1,...x_n]` be a data chunk, and `x_i` be a byte, i.e., an element over GF(256). Assume `(n, k)` RS code with a generator matrix `G = [I P]` is employed, where `I` is an identity matrix.
+  - The given data chunk `c` is simply split into the following two parts, `b` and `z`.
+
+    ```shell:
+    b = [x_1, ..., x_k]
+    d = [x_k+1, ..., x_n]
+    ```
+
+  - A codeword `w` is generated as `w = bG = [bI bP] = [b bP]`, and we have `d = bP + z`. Then finally `b` and `d` are treated as a base and a deviation in the context of GD.
+
+  Note that RS code is *non-perfect* in terms of sphere packing (doesn't meet the Hamming bound). This means that for a given chunk, we cannot uniquely determine one nearest codeword (may exist multiple codewords). Hence we need a trick to uniquely map a given arbitrary chunk `c` of length `n` to a codeword (base) `w` of an `(n, k)` RS code and additive error `d`(deviation), i.e., `c = w + d`.
+
+  Observe that in GD, we can arbitrarily assume *positions of virtual errors* in a given chunk to calculate the deviation. In the above method, we supposed that the message part, i.e., `[x_1,...,x_k]`, of the chunk is error-free. Thus, we can uniquely fix the base, i.e., `b ~ w = bG`, and the deviation `d ~ w + [0, d]` as well.
+
+  The above strategy by splitting a chunk is really simple, and we may need more generalized approach that arbitrary splits vector space `GF(256)^n`. This can be simply done by fixing a linear transformation `T: GF(256)^n -> GF(256)^n`, i.e., a non-singular `n x n` matrix `T` over `GF(256)`, and calculate a base `b` and a deviation `d` for a given chunk `c` as
+
+  ```shell:
+  1. [x, y] = cT
+  2. [b, xP]= x G = [x xP]
+  3. d = xP + y
+  ```
 
 - (TODO) Deletion and deviation using PRNG (Yggdrasil paper)
-
-- (TODO) Reed-Solomon codes over `GF(256)` (not yet)
-  - I am not sure how RS code works. This is because RS is NOT perfect, in the sense of sphere packing. So, the technique to calculate the `base` = RS codeword and `dev` = error from arbitrary byte sequence has to require some trick.
-  - I guess in RS codes, first find a base(s) near the given byte sequence `S` in terms of the Hamming distance, fix one base `B`, and compress the difference `D = S + B`, where `D` can be shortened since it has few numbers of non-zero bytes.
-  - Maybe list decoding approach is feasible to 'list' the near codewords.
 
 - (TODO) Golomb-Rice codes
 
