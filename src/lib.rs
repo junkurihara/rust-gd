@@ -49,29 +49,20 @@ impl GDInner {
   pub fn unit_check(&self) {
     match &self {
       GDInner::Hamming(x) => x.unit_check(),
-      GDInner::ReedSolomon(x) => (), //x.unit_check(),//TODO:
+      GDInner::ReedSolomon(x) => x.unit_check(),
     }
   }
   pub fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped> {
     match self {
       GDInner::Hamming(x) => x.dedup(buf),
-      GDInner::ReedSolomon(x) => {
-        //TODO:
-        Ok(Deduped {
-          data: bitvec![u8, Msb0; 0; 0],
-          last_chunk_pad_bytelen: 0,
-        })
-      } //x.unit_check(),
+      GDInner::ReedSolomon(x) => x.dedup(buf),
     }
   }
 
   pub fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep> {
     match self {
       GDInner::Hamming(x) => x.dup(deduped),
-      GDInner::ReedSolomon(x) => {
-        //TODO:
-        Ok(vec![0u8; 10])
-      } //x.unit_check(),
+      GDInner::ReedSolomon(x) => x.dup(deduped),
     }
   }
 }
@@ -84,7 +75,6 @@ where
 {
   code: C,
   basis_dict: BasisDict<BVRep>,
-  // TODO: dict, implement trait of base dictionary
   // TODO: separator, sometimes this should be a byte?
   chunk_bytelen: usize,
 }
@@ -96,7 +86,6 @@ where
 {
   code: C,
   basis_dict: BasisDict<U8VRep>,
-  // TODO: dict, implement trait of base dictionary
   // TODO: separator, sometimes this should be a byte?
   chunk_bytelen: usize,
 }
@@ -112,7 +101,28 @@ pub trait GDTrait {
   fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped>;
   fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep>;
 }
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+impl<C> GDTrait for ByteGD<C>
+where
+  C: ByteUnitCode,
+{
+  fn unit_check(&self) {
+    println!("byte unit!");
+  }
 
+  fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped> {
+    //TODO:
+    Ok(Deduped {
+      data: bitvec![u8, Msb0; 0; 0],
+      last_chunk_pad_bytelen: 0,
+    })
+  }
+  fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep> {
+    //TODO:
+    Ok(vec![0u8; 10])
+  }
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 impl<C> GDTrait for BitGD<C>
 where
   C: BitUnitCode,
@@ -164,6 +174,7 @@ where
       last_chunk_pad_bytelen,
     })
   }
+
   fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep> {
     let code_len = self.code.code_bit_len();
     let info_len = self.code.info_bit_len();
@@ -209,54 +220,52 @@ where
   }
 }
 
-// impl<C, T> GDTrait for ByteGD<C, T>
-// where
-//   C: ByteUnitCode,
-//   T: std::cmp::Eq + std::hash::Hash + std::clone::Clone,
-// {
-//   fn unit_check(&self) {
-//     println!("byte unit!");
-//   }
-
-//   fn dedup(&mut self, buf: &U8SRep) -> Result<Duped> {}
-//   fn dup(&mut self, deduped: &Duped) -> Result<U8VRep, Error> {}
-// }
-// Polymorphism的なことがしんどそうなので、BitGDとByteGDで分けて、GD Traitを実装した方が早そう？
-// あるいはGDTraitをGDのTypeに合わせて複数実装する
-// struct GD<CodeType, DictType, SepType> {}
-// trait GDTrait { fn dup; fn dedup }
-// impl GDTrait for GD<T: BitUnitCode, BitDict, BitSep>{ fn dup; fn dedup }
-// impl GDTrait for GD<T: ByteUnitCode, ByteDict, ByteSep>{ fn dup; fn dedup }
-
 /////////////////////////////////////////
 
 #[cfg(test)]
 mod tests {
   use super::*;
 
+  const WORD_STR: &str = "寿限無(じゅげむ)寿限無(じゅげむ)五劫(ごこう)のすりきれ海砂利(かいじゃり)水魚(すいぎょ)の水行末(すいぎょうまつ) ";
+
   #[test]
   fn hamming_works() {
-    let hamming_deg: usize = 8;
-    let hamming_dict_size = 511;
-    let mut gd_dedup = GD::Hamming(hamming_deg).setup(hamming_dict_size).unwrap();
-    gd_dedup.unit_check();
+    for hamming_deg in 4..11 {
+      let hamming_dict_size = 511;
+      let mut gd_dedup = GD::Hamming(hamming_deg).setup(hamming_dict_size).unwrap();
+      gd_dedup.unit_check();
 
-    // let words: U8VRep = (0..255).into_iter().collect();
-    let words = "寿限無(じゅげむ)寿限無(じゅげむ)五劫(ごこう)のすりきれ海砂利(かいじゃり)水魚(すいぎょ)の水行末(すいぎょうまつ) ".to_string().repeat(128).into_bytes();
-    println!("org size: {} bits", words.len() * 8);
-    let x = gd_dedup.dedup(&words).unwrap();
-    println!("deduped size {} bits", x.data.len());
-    let mut gd_dup = GD::Hamming(hamming_deg).setup(hamming_dict_size).unwrap();
-    let y = gd_dup.dup(&x).unwrap();
-    // println!("{:?}", y);
-    println!("duped size {} bits", y.len() * 8);
-    assert_eq!(y, words);
+      // let words: U8VRep = (0..255).into_iter().collect();
+      let words = WORD_STR.to_string().repeat(128).into_bytes();
+      println!("org size: {} bits", words.len() * 8);
+      let x = gd_dedup.dedup(&words).unwrap();
+      println!("deduped size {} bits", x.data.len());
+      let mut gd_dup = GD::Hamming(hamming_deg).setup(hamming_dict_size).unwrap();
+      let y = gd_dup.dup(&x).unwrap();
+      // println!("{:?}", y);
+      println!("duped size {} bits", y.len() * 8);
+      assert_eq!(y, words);
+    }
   }
 
   #[test]
   fn rs_works() {
-    let gd_dedup = GD::ReedSolomon(3, 2).setup(1024).unwrap();
+    let code_len = 3;
+    let msg_len = 2;
+    let dict_size = 1024;
+
+    let mut gd_dedup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
+    let mut gd_dup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
+
+    let words = WORD_STR.to_string().repeat(128).into_bytes();
+
     gd_dedup.unit_check();
+    println!("org size: {} bits", words.len() * 8);
+    let x = gd_dedup.dedup(&words).unwrap();
+    println!("deduped size {} bits", x.data.len());
+    let y = gd_dup.dup(&x).unwrap();
+    // println!("{:?}", y);
+    println!("duped size {} bits", y.len() * 8);
     // println!("{:?}", gd);
   }
 }
