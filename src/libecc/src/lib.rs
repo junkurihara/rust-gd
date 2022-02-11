@@ -7,6 +7,7 @@ mod rs;
 use crate::error::*;
 use bitvec::prelude::*;
 pub use hamming::Hamming;
+use util::hexdump_slice;
 pub use util::{bitdump_bitslice, hexdump_bitslice};
 
 pub trait Code {
@@ -54,5 +55,15 @@ impl<T: BitStore, O: BitOrder> HexDump for BitSlice<T, O> {
 impl<T: BitStore, O: BitOrder> HexDump for BitVec<T, O> {
   fn hexdump(&self) -> Result<String> {
     hexdump_bitslice(self.as_bitslice())
+  }
+}
+impl HexDump for &[u8] {
+  fn hexdump(&self) -> Result<String> {
+    hexdump_slice(self)
+  }
+}
+impl HexDump for Vec<u8> {
+  fn hexdump(&self) -> Result<String> {
+    hexdump_slice(self.as_slice())
   }
 }

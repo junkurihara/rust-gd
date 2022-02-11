@@ -122,6 +122,8 @@ impl Code for ReedSolomon {
 
 #[cfg(test)]
 mod tests {
+  use crate::HexDump;
+
   use super::*;
 
   const N: usize = 10;
@@ -137,6 +139,11 @@ mod tests {
 
     assert_eq!(message, decoded.base);
     assert_eq!(dev.to_vec(), decoded.deviation);
+    assert_eq!(message.hexdump().unwrap(), decoded.base.hexdump().unwrap());
+    assert_eq!(
+      dev.as_slice().hexdump().unwrap(),
+      decoded.deviation.hexdump().unwrap()
+    );
 
     let message = (0u8..K as u8).map(|x| x).collect::<Vec<u8>>();
     let dev = (0u8..(N - K) as u8).rev().map(|x| x).collect::<Vec<u8>>();
@@ -145,6 +152,8 @@ mod tests {
 
     assert_eq!(message, decoded.base);
     assert_eq!(dev, decoded.deviation);
+    assert_eq!(message.hexdump().unwrap(), decoded.base.hexdump().unwrap());
+    assert_eq!(dev.hexdump().unwrap(), decoded.deviation.hexdump().unwrap())
   }
 
   #[test]
