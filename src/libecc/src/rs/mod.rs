@@ -58,7 +58,14 @@ impl ReedSolomon {
   }
 }
 
-impl ByteUnitCode for ReedSolomon {}
+impl ByteUnitCode for ReedSolomon {
+  fn code_byte_len(&self) -> usize {
+    self.code_symbol_len
+  }
+  fn info_byte_len(&self) -> usize {
+    self.info_symbol_len
+  }
+}
 impl Code for ReedSolomon {
   type Slice = [u8];
   type Vector = Vec<u8>;

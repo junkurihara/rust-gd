@@ -111,10 +111,44 @@ where
   }
 
   fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped> {
-    //TODO:
+    let code_bytelen = self.code.code_byte_len();
+    let last_chunk_pad_bytelen = self.chunk_bytelen - buf.len() % self.chunk_bytelen;
+    let mut padded = vec![0u8; last_chunk_pad_bytelen];
+
+    let mut res = BVRep::new();
+
+    let mut byte_ptr = 0usize;
+    while byte_ptr <= buf.len() {
+      let mut target = U8VRep::new();
+      target.extend_from_slice({
+        if byte_ptr + self.chunk_bytelen > buf.len() {
+          padded.extend_from_slice(&buf[byte_ptr..buf.len()]);
+          padded.as_slice()
+        } else {
+          &buf[byte_ptr..byte_ptr + self.chunk_bytelen]
+        }
+      });
+
+      let decoded = self.code.decode(target.as_slice())?;
+
+      // write result and update dict
+      let (sep, id_or_base) = match self.basis_dict.get_id(&decoded.base) {
+        Some(bit_id) => (Separator::Deduped.bv(), bit_id),
+        None => {
+          let _new_id = self.basis_dict.put_base(&decoded.base)?;
+          (Separator::AsIs.bv(), BVRep::from_slice(&decoded.base))
+        }
+      };
+      res.extend_from_bitslice(&sep);
+      res.extend_from_bitslice(&id_or_base);
+      res.extend_from_bitslice(&BVRep::from_slice(&decoded.deviation));
+
+      byte_ptr += self.chunk_bytelen;
+    }
+
     Ok(Deduped {
-      data: bitvec![u8, Msb0; 0; 0],
-      last_chunk_pad_bytelen: 0,
+      data: res,
+      last_chunk_pad_bytelen,
     })
   }
   fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep> {
@@ -250,8 +284,8 @@ mod tests {
 
   #[test]
   fn rs_works() {
-    let code_len = 3;
-    let msg_len = 2;
+    let code_len = 4;
+    let msg_len = 3;
     let dict_size = 1024;
 
     let mut gd_dedup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
@@ -260,12 +294,12 @@ mod tests {
     let words = WORD_STR.to_string().repeat(128).into_bytes();
 
     gd_dedup.unit_check();
-    println!("org size: {} bits", words.len() * 8);
+    println!("> org size: {} bits", words.len() * 8);
     let x = gd_dedup.dedup(&words).unwrap();
-    println!("deduped size {} bits", x.data.len());
+    println!("> deduped size {} bits", x.data.len());
     let y = gd_dup.dup(&x).unwrap();
     // println!("{:?}", y);
-    println!("duped size {} bits", y.len() * 8);
+    println!("> duped size {} bits", y.len() * 8);
     // println!("{:?}", gd);
   }
 }

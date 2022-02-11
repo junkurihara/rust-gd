@@ -21,7 +21,10 @@ pub trait BitUnitCode: Code<Slice = BitSlice<u8, Msb0>, Vector = BitVec<u8, Msb0
   fn code_bit_len(&self) -> usize;
   fn info_bit_len(&self) -> usize;
 }
-pub trait ByteUnitCode: Code<Slice = [u8], Vector = Vec<u8>> {}
+pub trait ByteUnitCode: Code<Slice = [u8], Vector = Vec<u8>> {
+  fn code_byte_len(&self) -> usize;
+  fn info_byte_len(&self) -> usize;
+}
 
 #[derive(Debug, Clone)]
 pub struct Decoded<T> {
