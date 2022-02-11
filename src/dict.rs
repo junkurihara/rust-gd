@@ -1,23 +1,28 @@
 use crate::error::*;
-use crate::separator::*;
+use crate::types::*;
 use bitvec::prelude::*;
 use hashlink::LinkedHashMap;
 use std::collections::HashMap;
 
-// Dictionary of ID-Base and Base-ID with eviction method of LRU
 #[derive(Debug, Clone)]
-pub struct BaseDict {
+pub struct BasisDict<T>
+where
+  T: std::cmp::Eq + std::hash::Hash + std::clone::Clone + std::fmt::Debug,
+{
   dict_size: usize,
   id_bitlen: usize,
-  dict_id_to_base: HashMap<usize, BitVec<u8, Msb0>>,
-  dict_base_to_id: LinkedHashMap<BitVec<u8, Msb0>, usize>,
+  dict_id_to_base: HashMap<usize, T>,
+  dict_base_to_id: LinkedHashMap<T, usize>,
   // TODO: Add a table to manage LRU
 }
 
-impl BaseDict {
+impl<T> BasisDict<T>
+where
+  T: std::cmp::Eq + std::hash::Hash + std::clone::Clone + std::fmt::Debug,
+{
   pub fn new(dict_size: usize) -> Self {
     let id_bitlen = (0usize.leading_zeros() - dict_size.leading_zeros()) as usize;
-    BaseDict {
+    BasisDict {
       dict_size,
       id_bitlen,
       dict_id_to_base: HashMap::new(),
@@ -25,76 +30,64 @@ impl BaseDict {
     }
   }
 
-  pub fn get_id_bitlen(&self) -> usize {
+  pub fn id_bitlen(&self) -> usize {
     self.id_bitlen
   }
 
-  pub fn get_id_or_base(
-    &mut self,
-    base: &BitSlice<u8, Msb0>,
-  ) -> Result<(Separator, BitVec<u8, Msb0>)> {
-    let mut res = BitVec::<u8, Msb0>::new();
+  // call only in dedup
+  pub fn get_id(&mut self, base: &T) -> Option<IdRep> {
     if let Some(id) = self.dict_base_to_id.get(base) {
-      // println!("found base: id {:4X}", id); //: {}", bs_base);
-      let bs_id: BitVec<usize, Msb0> = BitVec::from_element(id.to_owned());
-      res.extend_from_bitslice(&bs_id[bs_id.len() - self.id_bitlen as usize..]);
+      let res = self.usize_id_to_bitvec_id(id);
       self.dict_base_to_id.to_back(base); // update internal linked list
-      Ok((Separator::Deduped, res))
+      Some(res)
     } else {
-      // LRU
-      let new_id = if self.dict_base_to_id.len() < self.dict_size {
-        self.dict_base_to_id.len()
-      } else {
-        self.remove_lru_entry_get_freed_id()?
-      };
-      self.dict_base_to_id.insert(base.to_bitvec(), new_id);
-      self.dict_id_to_base.insert(new_id, base.to_bitvec());
-      // println!("> newid = {}", new_id);
-      res.extend_from_bitslice(base);
-      Ok((Separator::AsIs, res))
+      None
     }
   }
 
-  pub fn get_base(
-    &mut self,
-    base_or_id: &BitSlice<u8, Msb0>,
-    sep: Separator,
-  ) -> Result<BitVec<u8, Msb0>> {
-    match sep {
-      Separator::Deduped => {
-        // base_or_id is id
-        // https://github.com/bitvecto-rs/bitvec/issues/119
-        let mut id = 0usize;
-        for (mut dst, src) in id.view_bits_mut::<Lsb0>()[..base_or_id.len()]
-          .iter_mut()
-          .zip(base_or_id.iter().rev())
-        {
-          dst.set(*src);
-        }
+  // call in dedup when id was not found in get_id
+  // call in dup when base is given
+  pub fn put_base(&mut self, base: &T) -> Result<IdRep> {
+    // LRU
+    let new_id = if self.dict_base_to_id.len() < self.dict_size {
+      self.dict_base_to_id.len()
+    } else {
+      self.remove_lru_entry_get_freed_id()?
+    };
+    self.dict_base_to_id.insert(base.to_owned(), new_id);
+    self.dict_id_to_base.insert(new_id, base.to_owned());
+    // println!("> newid = {}", new_id);
+    let res = self.usize_id_to_bitvec_id(&new_id);
 
-        let base = self
-          .dict_id_to_base
-          .get(&id)
-          .ok_or(())
-          .map_err(|_| anyhow!("Invalid dictionary"))?;
-        self.dict_base_to_id.to_back(base); // update internal linked list
+    Ok(res)
+  }
 
-        Ok(base.to_bitvec())
-        // Ok((Separator::Deduped, res))
-      }
-      Separator::AsIs => {
-        // base_or_id is base
-        let new_id = if self.dict_base_to_id.len() < self.dict_size {
-          self.dict_base_to_id.len()
-        } else {
-          self.remove_lru_entry_get_freed_id()?
-        };
-
-        self.dict_base_to_id.insert(base_or_id.to_bitvec(), new_id);
-        self.dict_id_to_base.insert(new_id, base_or_id.to_bitvec());
-        Ok(base_or_id.to_bitvec())
-      }
+  // call only in dup when id is given
+  pub fn get_base(&mut self, bit_id: &IdSRep) -> Result<T> {
+    // https://github.com/bitvecto-rs/bitvec/issues/119
+    let mut id = 0usize;
+    for (mut dst, src) in id.view_bits_mut::<Lsb0>()[..bit_id.len()]
+      .iter_mut()
+      .zip(bit_id.iter().rev())
+    {
+      dst.set(*src);
     }
+
+    let base = self
+      .dict_id_to_base
+      .get(&id)
+      .ok_or(())
+      .map_err(|_| anyhow!("Invalid dictionary"))?;
+    self.dict_base_to_id.to_back(base); // update internal linked list
+
+    Ok(base.to_owned())
+  }
+
+  fn usize_id_to_bitvec_id(&self, id: &usize) -> IdRep {
+    let bs_id: BitVec<usize, Msb0> = BitVec::from_element(id.to_owned());
+    let mut res = BVRep::new();
+    res.extend_from_bitslice(&bs_id[bs_id.len() - self.id_bitlen as usize..]);
+    res
   }
 
   fn remove_lru_entry_get_freed_id(&mut self) -> Result<usize> {

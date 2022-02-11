@@ -2,7 +2,7 @@ mod field;
 mod matrix;
 mod vectorized;
 
-use super::{error::*, Code, Decoded, Encoded};
+use super::{error::*, ByteUnitCode, Code, Decoded, Encoded};
 use field::{GF256, ORDER, ROOT};
 use matrix::Matrix;
 use vectorized::Vectorized;
@@ -58,6 +58,7 @@ impl ReedSolomon {
   }
 }
 
+impl ByteUnitCode for ReedSolomon {}
 impl Code for ReedSolomon {
   type Slice = [u8];
   type Vector = Vec<u8>;

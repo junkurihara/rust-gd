@@ -1,7 +1,7 @@
 mod constant;
 mod util;
 
-use super::{error::*, Code, Decoded, Encoded};
+use super::{error::*, BitUnitCode, Code, Decoded, Encoded};
 use bitvec::prelude::*;
 use constant::{ERROR_POS_TO_SYNDROME, SYNDROME_TO_ERROR_POS};
 use util::{msb_to_u32, u32_to_msb};
@@ -61,6 +61,14 @@ impl Hamming {
   }
 }
 
+impl BitUnitCode for Hamming {
+  fn info_bit_len(&self) -> usize {
+    self.info_bit_len
+  }
+  fn code_bit_len(&self) -> usize {
+    self.code_bit_len
+  }
+}
 impl Code for Hamming {
   type Slice = BitSlice<u8, Msb0>;
   type Vector = BitVec<u8, Msb0>;

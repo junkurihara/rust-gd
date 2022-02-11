@@ -7,8 +7,8 @@ mod rs;
 use crate::error::*;
 use bitvec::prelude::*;
 pub use hamming::Hamming;
-use util::hexdump_slice;
-pub use util::{bitdump_bitslice, hexdump_bitslice};
+pub use rs::ReedSolomon;
+pub use util::{bitdump_bitslice, hexdump_bitslice, hexdump_slice};
 
 pub trait Code {
   type Slice: ?Sized;
@@ -17,6 +17,11 @@ pub trait Code {
   fn encode(&self, info: &Self::Slice, dev: &Self::Slice) -> Result<Encoded<Self::Vector>>;
   fn decode(&self, data: &Self::Slice) -> Result<Decoded<Self::Vector>>;
 }
+pub trait BitUnitCode: Code<Slice = BitSlice<u8, Msb0>, Vector = BitVec<u8, Msb0>> {
+  fn code_bit_len(&self) -> usize;
+  fn info_bit_len(&self) -> usize;
+}
+pub trait ByteUnitCode: Code<Slice = [u8], Vector = Vec<u8>> {}
 
 #[derive(Debug, Clone)]
 pub struct Decoded<T> {
