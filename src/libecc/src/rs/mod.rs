@@ -2,7 +2,7 @@ mod field;
 mod matrix;
 mod vectorized;
 
-use super::{error::*, ByteUnitCode, Code, Decoded, Encoded};
+use super::{error::*, types::*, ByteUnitCode, Code, Decoded, Encoded};
 use field::{GF256, ORDER, ROOT};
 use matrix::Matrix;
 use vectorized::Vectorized;
@@ -67,8 +67,8 @@ impl ByteUnitCode for ReedSolomon {
   }
 }
 impl Code for ReedSolomon {
-  type Slice = [u8];
-  type Vector = Vec<u8>;
+  type Slice = U8SRep;
+  type Vector = U8VRep;
 
   fn decode(&self, data: &Self::Slice) -> Result<Decoded<Self::Vector>> {
     ensure!(data.len() == self.code_symbol_len, "Invalid data length");
@@ -140,7 +140,7 @@ mod tests {
   #[test]
   fn decode_works() {
     let rs = ReedSolomon::new(N, K).unwrap();
-    let message = (0u8..K as u8).map(|x| x).collect::<Vec<u8>>();
+    let message = (0u8..K as u8).map(|x| x).collect::<U8VRep>();
     let dev = &[0u8; N - K];
     let encoded = rs.encode(&message, dev).unwrap();
     let decoded = rs.decode(&encoded.errored).unwrap();
@@ -153,8 +153,8 @@ mod tests {
       decoded.deviation.hexdump().unwrap()
     );
 
-    let message = (0u8..K as u8).map(|x| x).collect::<Vec<u8>>();
-    let dev = (0u8..(N - K) as u8).rev().map(|x| x).collect::<Vec<u8>>();
+    let message = (0u8..K as u8).map(|x| x).collect::<U8VRep>();
+    let dev = (0u8..(N - K) as u8).rev().map(|x| x).collect::<U8VRep>();
     let encoded = rs.encode(&message, &dev).unwrap();
     let decoded = rs.decode(&encoded.errored).unwrap();
 
@@ -184,8 +184,8 @@ mod tests {
       .0
       .iter()
       .map(|gf| gf.0)
-      .collect::<Vec<u8>>();
-    let ans_err: Vec<u8> = ans_cw
+      .collect::<U8VRep>();
+    let ans_err: U8VRep = ans_cw
       .iter()
       .enumerate()
       .map(|(i, v)| if i < K { *v } else { *v ^ dev[i - K] })
@@ -193,7 +193,7 @@ mod tests {
     assert_eq!(encoded.codeword, ans_cw);
     assert_eq!(encoded.errored, ans_err);
 
-    let message = (0u8..K as u8).map(|x| x).collect::<Vec<u8>>();
+    let message = (0u8..K as u8).map(|x| x).collect::<U8VRep>();
     let dev = &[0u8; N - K];
     let encoded = rs.encode(&message, dev).unwrap();
     let ans_cw = rs
@@ -207,7 +207,7 @@ mod tests {
       .0
       .iter()
       .map(|gf| gf.0)
-      .collect::<Vec<u8>>();
+      .collect::<U8VRep>();
     assert_eq!(encoded.codeword, ans_cw);
     assert_eq!(encoded.errored, ans_cw);
   }

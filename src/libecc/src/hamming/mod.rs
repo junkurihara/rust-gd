@@ -1,7 +1,7 @@
 mod constant;
 mod util;
 
-use super::{error::*, BitUnitCode, Code, Decoded, Encoded};
+use super::{error::*, types::*, BitUnitCode, Code, Decoded, Encoded};
 use bitvec::prelude::*;
 use constant::{ERROR_POS_TO_SYNDROME, SYNDROME_TO_ERROR_POS};
 use util::{msb_to_u32, u32_to_msb};
@@ -31,7 +31,7 @@ impl Hamming {
     })
   }
 
-  fn calc_syndrome(&self, cw: &BitSlice<u8, Msb0>) -> BitVec<u8, Msb0> {
+  fn calc_syndrome(&self, cw: &BSRep) -> BVRep {
     let syndrome_len = self.code_bit_len - self.info_bit_len;
     cw.iter()
       .enumerate()
@@ -45,11 +45,7 @@ impl Hamming {
       })
   }
 
-  fn one_bit_flip_by_syndrome(
-    &self,
-    data: &BitSlice<u8, Msb0>,
-    syn: &BitSlice<u8, Msb0>,
-  ) -> BitVec<u8, Msb0> {
+  fn one_bit_flip_by_syndrome(&self, data: &BSRep, syn: &BSRep) -> BVRep {
     let mut flipped = data.to_bitvec();
     let syn_val = msb_to_u32(syn);
     if syn_val > 0 {
@@ -70,8 +66,8 @@ impl BitUnitCode for Hamming {
   }
 }
 impl Code for Hamming {
-  type Slice = BitSlice<u8, Msb0>;
-  type Vector = BitVec<u8, Msb0>;
+  type Slice = BSRep;
+  type Vector = BVRep;
 
   fn decode(&self, data: &Self::Slice) -> Result<Decoded<Self::Vector>> {
     ensure!(data.len() == self.code_bit_len, "Invalid data length");
@@ -137,19 +133,19 @@ mod tests {
     let code_len = 7;
     let hamming = Hamming::new(3).unwrap();
 
-    let data: BitVec<u8, Msb0> = bitvec![u8, Msb0; 0; code_len];
+    let data: BVRep = bitvec![u8, Msb0; 0; code_len];
     let syndrome = hamming.decode(data.as_bitslice()).unwrap();
     assert_eq!("00", syndrome.base.hexdump().unwrap());
     assert_eq!("00", syndrome.deviation.hexdump().unwrap());
     assert_eq!("0000", syndrome.base.bitdump());
     assert_eq!("000", syndrome.deviation.bitdump());
 
-    let data: BitVec<u8, Msb0> = bitvec![u8, Msb0; 1; code_len];
+    let data: BVRep = bitvec![u8, Msb0; 1; code_len];
     let syndrome = hamming.decode(data.as_bitslice()).unwrap();
     assert_eq!("1111", syndrome.base.bitdump());
     assert_eq!("000", syndrome.deviation.bitdump());
 
-    let data: BitVec<u8, Msb0> = bitvec![u8, Msb0; 1,0,1,1,1,1,0];
+    let data: BVRep = bitvec![u8, Msb0; 1,0,1,1,1,1,0];
     let syndrome = hamming.decode(&data).unwrap();
     assert_eq!("1001", syndrome.base.bitdump());
     assert_eq!("110", syndrome.deviation.bitdump());
@@ -217,12 +213,12 @@ mod tests {
       let code_len = 255;
       let hamming = Hamming::new(8).unwrap();
 
-      let data: BitVec<u8, Msb0> = bitvec![u8, Msb0; 0; code_len];
+      let data: BVRep = bitvec![u8, Msb0; 0; code_len];
       let syndrome = hamming.decode(&data);
       assert_eq!("0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", syndrome.bitdump_info());
       assert_eq!("00000000", syndrome.bitdump_syndrome());
       // assert_eq!("000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", syndrome.bitdump_noerror());
-      let data: BitVec<u8, Msb0> = bitvec![u8, Msb0; 1; code_len];
+      let data: BVRep = bitvec![u8, Msb0; 1; code_len];
       let syndrome = hamming.decode(&data);
       assert_eq!("1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111", syndrome.bitdump_info());
       assert_eq!("00000000", syndrome.bitdump_syndrome());

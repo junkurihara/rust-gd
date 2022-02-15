@@ -1,3 +1,4 @@
+use crate::types::*;
 use bitvec::prelude::*;
 
 pub fn u32_to_u8vec(num: &u32) -> Vec<u8> {
@@ -13,15 +14,15 @@ pub fn u32_to_u8vec(num: &u32) -> Vec<u8> {
   u8vec
 }
 
-pub fn u8vec_to_msb(u8vec: &[u8]) -> BitVec<u8, Msb0> {
+pub fn u8vec_to_msb(u8vec: &[u8]) -> BVRep {
   BitVec::from_slice(u8vec)
 }
 
-pub fn u32_to_msb(num: &u32) -> BitVec<u8, Msb0> {
+pub fn u32_to_msb(num: &u32) -> BVRep {
   u8vec_to_msb(&u32_to_u8vec(num))
 }
 
-pub fn msb_to_u32(bv: &BitSlice<u8, Msb0>) -> u32 {
+pub fn msb_to_u32(bv: &BSRep) -> u32 {
   assert!(bv.len() <= 32);
   let r = bv.iter().rev().enumerate().fold(
     0u32,
@@ -31,7 +32,7 @@ pub fn msb_to_u32(bv: &BitSlice<u8, Msb0>) -> u32 {
 }
 
 #[allow(dead_code)]
-pub fn get_residue(num: &BitSlice<u8, Msb0>, poly: &BitSlice<u8, Msb0>) -> BitVec<u8, Msb0> {
+pub fn get_residue(num: &BSRep, poly: &BSRep) -> BVRep {
   let first_one = poly.first_one().unwrap();
   let deg = poly.len() - first_one - 1;
   let trailed_poly = poly[first_one..].to_bitvec();
@@ -50,11 +51,7 @@ pub fn get_residue(num: &BitSlice<u8, Msb0>, poly: &BitSlice<u8, Msb0>) -> BitVe
 }
 
 #[allow(dead_code)]
-fn get_residue_bits(
-  num: &BitSlice<u8, Msb0>,
-  poly: &BitSlice<u8, Msb0>,
-  deg: usize,
-) -> BitVec<u8, Msb0> {
+fn get_residue_bits(num: &BSRep, poly: &BSRep, deg: usize) -> BVRep {
   assert_eq!(num.len(), poly.len());
 
   let ord = if let Some(one) = num.first_one() {
@@ -78,30 +75,30 @@ mod tests {
 
   #[test]
   fn test_residue_with_leading_zeros() {
-    let bit_num = BitVec::<u8, Msb0>::from_element(0b10000);
-    let bit_poly = BitVec::<u8, Msb0>::from_element(0b1011);
+    let bit_num = BVRep::from_element(0b10000);
+    let bit_poly = BVRep::from_element(0b1011);
     let res = get_residue(&bit_num, &bit_poly);
     assert_eq!(res, bitvec![u8, Msb0; 1, 1, 0]);
 
-    let bit_num = BitVec::<u8, Msb0>::from_element(0b1000_0000);
-    let bit_poly = BitVec::<u8, Msb0>::from_element(0b10011);
+    let bit_num = BVRep::from_element(0b1000_0000);
+    let bit_poly = BVRep::from_element(0b10011);
     let res = get_residue(&bit_num, &bit_poly);
     assert_eq!(res, bitvec![u8, Msb0; 1, 0, 1, 1]);
 
-    let bit_num = BitVec::<u8, Msb0>::from_vec(vec![0x80u8, 0x00u8]);
-    let bit_poly = BitVec::<u8, Msb0>::from_vec(vec![0b1, 0x1Du8]);
+    let bit_num = BVRep::from_vec(vec![0x80u8, 0x00u8]);
+    let bit_poly = BVRep::from_vec(vec![0b1, 0x1Du8]);
     let res = get_residue(&bit_num, &bit_poly);
-    assert_eq!(res, BitVec::<u8, Msb0>::from_element(0x26u8));
+    assert_eq!(res, BVRep::from_element(0x26u8));
   }
 
   #[test]
   fn test_residue() {
-    let bit_poly: BitVec<u8, Msb0> = bitvec![u8, Msb0; 1, 0, 0, 1, 1];
-    let ba: BitVec<u8, Msb0> = bitvec![u8, Msb0; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0];
+    let bit_poly: BVRep = bitvec![u8, Msb0; 1, 0, 0, 1, 1];
+    let ba: BVRep = bitvec![u8, Msb0; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0];
     assert_eq!(bitvec![u8, Msb0; 0, 1, 0, 1], get_residue(&ba, &bit_poly));
 
-    let bit_poly: BitVec<u8, Msb0> = bitvec![u8, Msb0; 1, 0, 0, 1, 1];
-    let ba: BitVec<u8, Msb0> = bitvec![u8, Msb0; 0, 1, 0];
+    let bit_poly: BVRep = bitvec![u8, Msb0; 1, 0, 0, 1, 1];
+    let ba: BVRep = bitvec![u8, Msb0; 0, 1, 0];
     assert_eq!(bitvec![u8, Msb0; 0, 0, 1, 0], get_residue(&ba, &bit_poly));
   }
 

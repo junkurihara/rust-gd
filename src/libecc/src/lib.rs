@@ -1,13 +1,15 @@
 mod error;
+pub mod types;
 mod util;
 
 mod hamming;
 mod rs;
 
-use crate::error::*;
 use bitvec::prelude::*;
+use error::*;
 pub use hamming::Hamming;
 pub use rs::ReedSolomon;
+use types::*;
 pub use util::{bitdump_bitslice, hexdump_bitslice, hexdump_slice};
 
 pub trait Code {
@@ -17,11 +19,11 @@ pub trait Code {
   fn encode(&self, info: &Self::Slice, dev: &Self::Slice) -> Result<Encoded<Self::Vector>>;
   fn decode(&self, data: &Self::Slice) -> Result<Decoded<Self::Vector>>;
 }
-pub trait BitUnitCode: Code<Slice = BitSlice<u8, Msb0>, Vector = BitVec<u8, Msb0>> {
+pub trait BitUnitCode: Code<Slice = BSRep, Vector = BVRep> {
   fn code_bit_len(&self) -> usize;
   fn info_bit_len(&self) -> usize;
 }
-pub trait ByteUnitCode: Code<Slice = [u8], Vector = Vec<u8>> {
+pub trait ByteUnitCode: Code<Slice = U8SRep, Vector = U8VRep> {
   fn code_byte_len(&self) -> usize;
   fn info_byte_len(&self) -> usize;
 }
@@ -65,12 +67,12 @@ impl<T: BitStore, O: BitOrder> HexDump for BitVec<T, O> {
     hexdump_bitslice(self.as_bitslice())
   }
 }
-impl HexDump for &[u8] {
+impl HexDump for &U8SRep {
   fn hexdump(&self) -> Result<String> {
     hexdump_slice(self)
   }
 }
-impl HexDump for Vec<u8> {
+impl HexDump for U8VRep {
   fn hexdump(&self) -> Result<String> {
     hexdump_slice(self.as_slice())
   }

@@ -1,14 +1,12 @@
 mod dict;
 mod error;
 mod separator;
-mod types;
 
 use bitvec::prelude::*;
 use dict::BasisDict;
 use error::*;
-use libecc::*;
+use libecc::{types::*, *};
 use separator::Separator;
-use types::*;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Clone)]

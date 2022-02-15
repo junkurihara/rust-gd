@@ -106,15 +106,12 @@ where
       .map_err(|_| anyhow!("Invalid dictionary"))?;
 
     // 3. return the id.
-    // println!(
-    // "{:?} {:?} {:?} {:?}\n{:?}\n{:?}",
-    // kr, k, vr, v, self.dict_base_to_id, self.dict_id_to_base
-    // );
     ensure!(kr == k && vr == v, "Failed to remove...Broken dictionary");
 
     Ok(v)
   }
 
+  #[allow(dead_code)]
   pub fn check_inner_integrity(&self) -> Result<()> {
     // check consistency between id_to_base and base_to_id
     ensure!(
