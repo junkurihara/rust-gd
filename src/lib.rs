@@ -303,6 +303,7 @@ where
 #[cfg(test)]
 mod tests {
   use super::*;
+  use rand::Rng;
 
   // const WORD_STR: &str = "寿限無(じゅげむ)寿限無(じゅげむ)五劫(ごこう)のすりきれ海砂利(かいじゃり)水魚(すいぎょ)の水行末(すいぎょうまつ) ";
   // const WORD_STR: &str = "寿限無(じゅげむ)寿限無(じゅげむ)五劫(ごこう)のすりきれ海砂利(かいじゃり)水魚(すいぎょ)の水行末(すいぎょうまつ) 雲来末(うんらいまつ) 風来末(ふうらいまつ)食(く)う寝(ね)るところに住(す)むところやぶらこうじのぶらこうじパイポパイポパイポのシューリンガンシューリンガンのグーリンダイグーリンダイのポンポコピーのポンポコナの長久命(ちょうきゅうめい)の長助(ちょうすけ)";
@@ -337,10 +338,12 @@ mod tests {
 
   const RS_MAX_DICT_BITS: usize = 16;
   const RS_DICT_PARAM: usize = 4;
+  const RS_REPEAT: usize = 128;
 
   #[test]
   fn rs_works() {
-    println!("{}", WORD_STR.bytes().len());
+    let mut rng = rand::thread_rng();
+
     for code_len in vec![16, 32, 64, 128].into_iter() {
       for msg_len in 2isize.max(code_len as isize - 8) as usize..code_len {
         let dict_size = (1 << ((code_len - msg_len) * RS_DICT_PARAM).min(RS_MAX_DICT_BITS)) - 1;
@@ -349,7 +352,19 @@ mod tests {
         let mut gd_dup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
         // gd_dedup.unit_check();
 
-        let words = WORD_STR.to_string().repeat(128).into_bytes();
+        let words_org = WORD_STR.to_string().into_bytes().repeat(RS_REPEAT);
+        let words: Vec<u8> = words_org
+          .into_iter()
+          .enumerate()
+          .map(|(idx, b)| {
+            if idx % RS_REPEAT < msg_len {
+              b
+            } else {
+              let random_pad: u8 = rng.gen();
+              b ^ random_pad
+            }
+          })
+          .collect();
 
         // println!("RS code ({}, {}) over GF(256)", code_len, msg_len);
         // println!("> org size: {} bits", words.len() * 8);
