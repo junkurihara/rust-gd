@@ -336,15 +336,15 @@ mod tests {
     }
   }
 
-  const RS_MAX_DICT_BITS: usize = 16;
-  const RS_DICT_PARAM: usize = 4;
+  const RS_MAX_DICT_BITS: usize = 8;
+  const RS_DICT_PARAM: usize = 2;
   const RS_REPEAT: usize = 128;
 
   #[test]
   fn rs_works() {
     let mut rng = rand::thread_rng();
 
-    for code_len in vec![16, 32, 64, 128].into_iter() {
+    for code_len in vec![3, 4, 8, 16, 32, 64, 128].into_iter() {
       for msg_len in 2isize.max(code_len as isize - 8) as usize..code_len {
         let dict_size = (1 << ((code_len - msg_len) * RS_DICT_PARAM).min(RS_MAX_DICT_BITS)) - 1;
 

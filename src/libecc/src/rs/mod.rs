@@ -9,10 +9,10 @@ use vectorized::Vectorized;
 
 #[derive(Debug, Clone)]
 pub struct ReedSolomon {
-  pub code_symbol_len: usize,          // n over GF(2^8)
-  pub info_symbol_len: usize,          // k over GF(2^8)
-  pub deviation_symbol_len: usize,     // deviation length over GF(2^8)
-  pub generator_matrix: Matrix<GF256>, // generator matrix G as a look-up table for encoding
+  pub code_symbol_len: usize,             // n over GF(2^8)
+  pub info_symbol_len: usize,             // k over GF(2^8)
+  pub deviation_symbol_len: usize,        // deviation length over GF(2^8)
+  generator_matrix_parity: Matrix<GF256>, // parity part P of systematic generator matrix G = [I P] as a look-up table for encoding
 }
 
 impl ReedSolomon {
@@ -44,16 +44,19 @@ impl ReedSolomon {
       inverse_matrix_src.is_ok(),
       "Failed to make inversion of RS generator matrix"
     );
-    let inverse_matrix = inverse_matrix_src.unwrap();
 
     // Systematic generator matrix for ease
-    let systematic_generator_matrix = inverse_matrix.clone() * vandermonde_matrix;
+    let systematic_generator_matrix = inverse_matrix_src.unwrap() * vandermonde_matrix;
+    let parity_part_src = systematic_generator_matrix
+      .clone()
+      .column_submat(info_symbol_len, code_symbol_len);
+    ensure!(parity_part_src.is_ok(), "Failed to get parity submatrix");
 
     Ok(ReedSolomon {
       code_symbol_len,
       info_symbol_len,
       deviation_symbol_len: code_symbol_len - info_symbol_len, // redundancy length
-      generator_matrix: systematic_generator_matrix,
+      generator_matrix_parity: parity_part_src.unwrap(),
     })
   }
 }
@@ -113,16 +116,20 @@ impl Code for ReedSolomon {
     } else {
       bail!("Something wrong in matrix conversion of message")
     };
+    let parity_gf256 = msg_gf256 * self.generator_matrix_parity.clone();
+    ensure!(parity_gf256.row_size() == 1, "Failed to encode");
 
-    let codeword_gf256 = msg_gf256 * self.generator_matrix.clone();
-    ensure!(codeword_gf256.row_size() == 1, "Failed to encode");
-
-    let codeword = codeword_gf256.0[0].0.iter().map(|x| x.0).collect();
     // Deviation is defined as the difference between error-free codeword and erroneous one at the redundancy part of the codeword.
-    let mut error = Vectorized(vec![GF256(0); self.info_symbol_len]);
-    error.extend_from_slice(&dev.into_iter().map(|v| GF256(*v)).collect::<Vec<GF256>>());
-    let errored_gf256 = codeword_gf256.0[0].clone() + error;
-    let errored = errored_gf256.0.iter().map(|v| v.0).collect();
+    let errored_parity_gf256 = parity_gf256.0[0].clone()
+      + Vectorized(dev.into_iter().map(|v| GF256(*v)).collect::<Vec<GF256>>());
+
+    let parity: Vec<u8> = parity_gf256.0[0].0.iter().map(|x| x.0).collect();
+    let mut codeword = message.to_vec().clone();
+    codeword.extend_from_slice(parity.as_slice());
+
+    let errored_parity: Vec<u8> = errored_parity_gf256.0.iter().map(|v| v.0).collect();
+    let mut errored = message.to_vec().clone();
+    errored.extend_from_slice(errored_parity.as_slice());
 
     Ok(Encoded::<Self::Vector> { codeword, errored })
   }
@@ -176,38 +183,44 @@ mod tests {
     let message = &[1u8; K];
     let dev = &[1u8; N - K];
     let encoded = rs.encode(message, dev).unwrap();
-    let ans_cw = rs
-      .generator_matrix
+    let ans_cw_parity = rs
+      .generator_matrix_parity
       .0
       .iter()
-      .fold(Vectorized(vec![GF256(0); N]), |acc, v| acc + v.clone())
+      .fold(Vectorized(vec![GF256(0); N - K]), |acc, v| acc + v.clone())
       .0
       .iter()
       .map(|gf| gf.0)
       .collect::<U8VRep>();
-    let ans_err: U8VRep = ans_cw
+    let ans_err_parity: U8VRep = ans_cw_parity
       .iter()
       .enumerate()
-      .map(|(i, v)| if i < K { *v } else { *v ^ dev[i - K] })
+      .map(|(i, v)| *v ^ dev[i])
       .collect();
+    let mut ans_cw = message.to_vec();
+    let mut ans_err = message.to_vec();
+    ans_cw.extend_from_slice(ans_cw_parity.as_slice());
+    ans_err.extend_from_slice(ans_err_parity.as_slice());
     assert_eq!(encoded.codeword, ans_cw);
     assert_eq!(encoded.errored, ans_err);
 
     let message = (0u8..K as u8).map(|x| x).collect::<U8VRep>();
     let dev = &[0u8; N - K];
     let encoded = rs.encode(&message, dev).unwrap();
-    let ans_cw = rs
-      .generator_matrix
+    let ans_cw_parity = rs
+      .generator_matrix_parity
       .0
       .iter()
       .enumerate()
-      .fold(Vectorized(vec![GF256(0); N]), |acc, (row_idx, v)| {
+      .fold(Vectorized(vec![GF256(0); N - K]), |acc, (row_idx, v)| {
         acc + v.clone().mul_scalar(GF256(row_idx as u8))
       })
       .0
       .iter()
       .map(|gf| gf.0)
       .collect::<U8VRep>();
+    let mut ans_cw = message.to_vec();
+    ans_cw.extend_from_slice(ans_cw_parity.as_slice());
     assert_eq!(encoded.codeword, ans_cw);
     assert_eq!(encoded.errored, ans_cw);
   }
@@ -222,13 +235,9 @@ mod tests {
     //  [GF256(1), GF256(8), GF256(64), GF256(58), GF256(205), GF256(38), GF256(45), GF256(117), GF256(143), GF256(12)]
     // ]
     assert_eq!(
-      rs.generator_matrix,
+      rs.generator_matrix_parity,
       Matrix::new(&vec![
         vec![
-          GF256(1),
-          GF256(0),
-          GF256(0),
-          GF256(0),
           GF256(64),
           GF256(231),
           GF256(229),
@@ -237,10 +246,6 @@ mod tests {
           GF256(178)
         ],
         vec![
-          GF256(0),
-          GF256(1),
-          GF256(0),
-          GF256(0),
           GF256(120),
           GF256(210),
           GF256(191),
@@ -249,10 +254,6 @@ mod tests {
           GF256(188)
         ],
         vec![
-          GF256(0),
-          GF256(0),
-          GF256(1),
-          GF256(0),
           GF256(54),
           GF256(87),
           GF256(7),
@@ -261,10 +262,6 @@ mod tests {
           GF256(213)
         ],
         vec![
-          GF256(0),
-          GF256(0),
-          GF256(0),
-          GF256(1),
           GF256(15),
           GF256(99),
           GF256(92),

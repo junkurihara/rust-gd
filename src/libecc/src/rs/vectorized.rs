@@ -49,6 +49,7 @@ impl<T> Vectorized<T>
 where
   T: Add<Output = T> + Copy,
 {
+  #[allow(dead_code)]
   pub fn add_within(&mut self, other: Self) {
     assert_eq!(self.0.len(), other.0.len());
     for idx in 0..self.0.len() {

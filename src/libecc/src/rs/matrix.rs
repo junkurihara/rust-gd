@@ -51,6 +51,7 @@ where
   pub fn can_try_diag(&self) -> bool {
     self.row_size() <= self.col_size()
   }
+  #[allow(dead_code)]
   pub fn is_identity_matrix(&self, zero_t: T, identity_t: T) -> bool {
     if self.col_size() != self.row_size() {
       false
@@ -172,6 +173,18 @@ where
       }
     }
     Ok(())
+  }
+
+  pub fn column_submat(&self, from: usize, to: usize) -> Result<Self> {
+    ensure!(self.col_size() >= to && from < to, "Invalid parameter");
+    let submatrix = Matrix(
+      self
+        .0
+        .iter()
+        .map(|row| row.subvec(from, to))
+        .collect::<Vec<_>>(),
+    );
+    Ok(submatrix)
   }
 }
 
