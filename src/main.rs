@@ -8,10 +8,19 @@ const BUFFER_SIZE: usize = 512 * 1024;
 
 fn proc(reader: &mut dyn Read, writer: &mut dyn Write) {
   let mut buf = [0u8; BUFFER_SIZE];
-  let deg = 8;
-  let dict_size = 1024;
-  let mut gd_dedup = GD::Hamming(deg).setup(dict_size).unwrap();
-  let mut gd_dup = GD::Hamming(deg).setup(dict_size).unwrap();
+
+  let dict_size = 15;
+  let rs_code_len = 8;
+  let rs_info_len = 5;
+  let mut gd_dedup = GD::ReedSolomon(rs_code_len, rs_info_len)
+    .setup(dict_size)
+    .unwrap();
+  let mut gd_dup = GD::ReedSolomon(rs_code_len, rs_info_len)
+    .setup(dict_size)
+    .unwrap();
+  // let hamming_deg = 8;
+  // let mut gd_dedup = GD::Hamming(deg).setup(dict_size).unwrap();
+  // let mut gd_dup = GD::Hamming(deg).setup(dict_size).unwrap();
 
   while let Ok(n) = reader.read(&mut buf) {
     if n == 0 {
