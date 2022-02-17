@@ -1,10 +1,8 @@
-# rust-gd
+# rust-gd: A Rust implementation of Generalized Deduplication
 
-Rust implementation of *Generalized Deduplication* (GD) based on error-correcting codes.
+Rust implementation of *Generalized Deduplication* (GD) based on several types of error-correcting codes.
 
-This is an implementation (and somewhat extension) of the novel concept of data deduplication method, called *Generalized Deduplication* (GD).
-
-The original concept was introduced by a group of Aarhus University, Denmark, leaded by [Prof. D. E. Lucani](https://pure.au.dk/portal/en/persons/daniel-enrique-lucani-roetter(c4e78b1e-4dd6-460f-9c44-1a44771ce01a).html).
+This is an implementation (and somewhat extension) of the novel concept of data deduplication method, called *Generalized Deduplication* (GD). The original concept of GD was introduced by a group of Aarhus University, Denmark, leaded by [Prof. D. E. Lucani](https://pure.au.dk/portal/en/persons/daniel-enrique-lucani-roetter(c4e78b1e-4dd6-460f-9c44-1a44771ce01a).html).
 
 > - Vestergaard, Rasmus, Qi Zhang, and Daniel E. Lucani. "Generalized deduplication: bounds, convergence, and asymptotic properties." 2019 IEEE Global Communications Conference (GLOBECOM). IEEE, 2019.
 > - Vestergaard, Rasmus, Daniel E. Lucani, and Qi Zhang. "Generalized deduplication: Lossless compression for large amounts of small IoT data." European Wireless 2019; 25th European Wireless Conference. VDE, 2019.
