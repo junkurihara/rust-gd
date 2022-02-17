@@ -2,8 +2,6 @@ mod dict;
 mod error;
 mod separator;
 
-use std::cmp::max;
-
 use bitvec::prelude::*;
 use dict::BasisDict;
 use error::*;
