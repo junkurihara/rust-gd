@@ -94,6 +94,8 @@ mod tests {
 
   #[test]
   fn hamming_works() {
+    let words = WORD_STR.to_string().repeat(128).into_bytes();
+
     for hamming_deg in 4..11 {
       let hamming_dict_size = 511;
 
@@ -102,7 +104,6 @@ mod tests {
       // gd_dedup.unit_check();
 
       // println!("Hamimng code deg = {}", hamming_deg);
-      let words = WORD_STR.to_string().repeat(128).into_bytes();
       // println!("> org size: {} bits", words.len() * 8);
       let x = gd_dedup.dedup(&words).unwrap();
       // println!("> deduped size {} bits", x.data.len());
@@ -125,6 +126,7 @@ mod tests {
   #[test]
   fn rs_works() {
     let mut rng = rand::thread_rng();
+    let words_org = WORD_STR.to_string().into_bytes().repeat(RS_REPEAT);
 
     for code_len in vec![3, 4, 8, 16, 32, 64, 128].into_iter() {
       for msg_len in 2isize.max(code_len as isize - 8) as usize..code_len {
@@ -134,8 +136,8 @@ mod tests {
         let mut gd_dup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
         // gd_dedup.unit_check();
 
-        let words_org = WORD_STR.to_string().into_bytes().repeat(RS_REPEAT);
         let words: Vec<u8> = words_org
+          .clone()
           .into_iter()
           .enumerate()
           .map(|(idx, b)| {

@@ -40,7 +40,7 @@ use rust_gd::*;
 use rust_gd::*;
 
 let to_be_deduped: &[u8] =
-    "寿限無(じゅげむ)寿限無(じゅげむ)五劫(ごこう)のすりきれ海砂利(かいじゃり)padpadpadpadpadpadpadpad".to_string().as_bytes()
+    "寿限無(じゅげむ)寿限無(じゅげむ)五劫(ごこう)のすりきれ海砂利(かいじゃり)padpadpadpadpadpadpadpad".to_string().repeat(128).as_bytes()
 
 let code_len = 128; // codeword length over GF(256), i.e., N in (N, K) RS code
 let msg_len = 124;  // message length over GF(256), i.e., K in (N, K) RS code
@@ -69,7 +69,7 @@ let hamming_deg = 4;         // Degree m of (2^m - 1, 2^m - m -1) Hamming code
 let hamming_dict_size = 511; // max entry size of a dictionary used in GD process
 
 let to_be_deduped: &[u8] =
-    "寿限無(じゅげむ)寿限無(じゅげむ)五劫(ごこう)のすりきれ海砂利(かいじゃり)padpadpadpadpadpadpadpad".to_string().as_bytes()
+    "寿限無(じゅげむ)寿限無(じゅげむ)五劫(ごこう)のすりきれ海砂利(かいじゃり)padpadpadpadpadpadpadpad".to_string().repeat(128).as_bytes()
 
 // GD instance for deduplication (compress)
 let mut gd_dedup = GD::Hamming(hamming_deg).setup(hamming_dict_size).unwrap();
