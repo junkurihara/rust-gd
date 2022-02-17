@@ -2,8 +2,21 @@
 name = "libecc"
 version = "0.1.0"
 edition = "2021"
+description = "Library of Error-Correcting Codes for GD"
+authors = ["Jun Kurihara"]
+homepage = "https://github.com/junkurihara/rust-gd"
+repository = "https://github.com/junkurihara/rust-gd"
+publish = false
 
 [dependencies]
 anyhow = "1.0.53"
 bitvec = "1.0.0"
 phf = { version = "0.10.1", features = ["macros"] }
+
+
+[profile.release]
+codegen-units = 1
+incremental = false
+lto = "fat"
+opt-level = 3
+panic = "abort"

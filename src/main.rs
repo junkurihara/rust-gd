@@ -40,7 +40,7 @@ fn proc(reader: &mut dyn Read, writer: &mut dyn Write) {
       let dup = gd_dup.dup(&deduped);
       let _ = writer
         .write(format!("> Duped:\n> {}\n", String::from_utf8(dup.unwrap()).unwrap()).as_bytes());
-      println!("> Compressed {} -> {} (bits)", n * 8, deduped.data.len());
+      println!("> Compressed {} -> {} (bytes)", n, deduped.data.len());
     } else {
       panic!("omg");
     }
