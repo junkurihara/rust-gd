@@ -1,4 +1,4 @@
-# rust-gd: A Rust implementation of Generalized Deduplication
+# rust-gd: A Rust Implementation of Generalized Deduplication
 
 Rust implementation of *Generalized Deduplication* (GD) based on several types of error-correcting codes.
 
@@ -166,6 +166,8 @@ We should note that *the linear transformation `T` pushes the virtual errors con
 ## TODO
 
 Following should be considered to be implemented.
+
+- RS codes with precoding option for **error alignment**
 
 - Deletion and deviation using PRNG (Yggdrasil paper)
 
