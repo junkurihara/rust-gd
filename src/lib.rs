@@ -1,12 +1,14 @@
 mod dict;
 mod error;
+mod gd_bit_unit;
+mod gd_byte_unit;
 mod separator;
 
-use bitvec::prelude::*;
 use dict::BasisDict;
 use error::*;
+use gd_bit_unit::BitGD;
+use gd_byte_unit::ByteGD;
 use libecc::{types::*, *};
-use separator::Separator;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Clone)]
@@ -66,248 +68,18 @@ impl GDInner {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#[derive(Debug, Clone)]
-pub struct BitGD<C>
-where
-  C: Code + BitUnitCode,
-{
-  code: C,
-  basis_dict: BasisDict<BVRep>,
-  // TODO: separator, sometimes this should be a byte?
-  chunk_bytelen: usize,
+pub trait GDTrait {
+  fn unit_check(&self);
+  fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped>;
+  fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep>;
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#[derive(Debug, Clone)]
-pub struct ByteGD<C>
-where
-  C: Code + ByteUnitCode,
-{
-  code: C,
-  basis_dict: BasisDict<U8VRep>,
-  // TODO: separator, sometimes this should be a byte?
-  chunk_bytelen: usize,
-}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Clone)]
 pub struct Deduped {
   pub data: U8VRep,
   pub last_chunk_pad_bytelen: usize,
 }
-
-pub trait GDTrait {
-  fn unit_check(&self);
-  fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped>;
-  fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep>;
-}
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-impl<C> GDTrait for ByteGD<C>
-where
-  C: ByteUnitCode,
-{
-  fn unit_check(&self) {
-    println!("byte unit!");
-  }
-
-  fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped> {
-    let last_chunk_pad_bytelen = self.chunk_bytelen - buf.len() % self.chunk_bytelen;
-    let mut padded = vec![0u8; last_chunk_pad_bytelen];
-
-    let mut res = BVRep::new();
-
-    let mut byte_ptr = 0usize;
-    while byte_ptr <= buf.len() {
-      let mut target = U8VRep::new();
-      target.extend_from_slice({
-        if byte_ptr + self.chunk_bytelen > buf.len() {
-          padded.extend_from_slice(&buf[byte_ptr..buf.len()]);
-          padded.as_slice()
-        } else {
-          &buf[byte_ptr..byte_ptr + self.chunk_bytelen]
-        }
-      });
-
-      let decoded = self.code.decode(target.as_slice())?;
-
-      // write result and update dict
-      let (sep, id_or_base) = match self.basis_dict.get_id(&decoded.base) {
-        Some(bit_id) => (Separator::Deduped.bv(), bit_id),
-        None => {
-          let _new_id = self.basis_dict.put_base(&decoded.base)?;
-          (Separator::AsIs.bv(), BVRep::from_slice(&decoded.base))
-        }
-      };
-      res.extend_from_bitslice(&sep);
-      res.extend_from_bitslice(&id_or_base);
-      res.extend_from_bitslice(&BVRep::from_slice(&decoded.deviation));
-
-      byte_ptr += self.chunk_bytelen;
-    }
-
-    res.force_align();
-    Ok(Deduped {
-      data: res.as_raw_slice().to_vec(),
-      last_chunk_pad_bytelen,
-    })
-  }
-  fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep> {
-    let deduped_bs = BitSlice::from_slice(&deduped.data);
-
-    let u8size = u8::BITS as usize;
-    let code_bitlen = self.code.code_byte_len() * u8size;
-    let info_bitlen = self.code.info_byte_len() * u8size;
-    let dev_bitlen = code_bitlen - info_bitlen;
-    let id_bitlen = self.basis_dict.id_bitlen();
-    let mut res = U8VRep::new();
-
-    let mut bitptr = 0usize;
-    let max_bit_pads = 7usize;
-    // max bit pad = 7 bits, if actual bitlen = 9 (0..8), 7bits pad is given.
-    // then bitptr = 9 here and deduped_bs.len() = 15
-    while bitptr < deduped_bs.len() - max_bit_pads {
-      let sep = match deduped_bs[bitptr] {
-        false => Separator::AsIs,
-        true => Separator::Deduped,
-      };
-      bitptr += 1;
-
-      let (base, step) = match sep {
-        Separator::AsIs => {
-          let mut bv = deduped_bs[bitptr..bitptr + info_bitlen].to_bitvec().clone();
-          bv.force_align();
-          let part = bv.as_raw_slice().to_owned();
-          let _new_id = self.basis_dict.put_base(&part)?;
-          ((&part).to_owned(), info_bitlen)
-        }
-        Separator::Deduped => {
-          let id = deduped_bs[bitptr..bitptr + id_bitlen].to_owned();
-          (self.basis_dict.get_base(&id)?, id_bitlen)
-        }
-      };
-      bitptr += step;
-
-      let mut bv = deduped_bs[bitptr..bitptr + dev_bitlen].to_bitvec().clone();
-      bv.force_align();
-      let dev = bv.as_raw_slice().to_owned();
-      bitptr += dev_bitlen;
-
-      let encoded = self.code.encode(&base, &dev)?;
-      let target = if bitptr >= deduped_bs.len() - max_bit_pads {
-        &encoded.errored[deduped.last_chunk_pad_bytelen..]
-      } else {
-        &encoded.errored[..]
-      };
-      res.extend_from_slice(target);
-    }
-
-    Ok(res)
-  }
-}
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-impl<C> GDTrait for BitGD<C>
-where
-  C: BitUnitCode,
-{
-  fn unit_check(&self) {
-    println!("bit unit!");
-  }
-
-  fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped> {
-    // Currently Byte Alignment is employed, i.e., message is always in bytes and some padding of < 8bits is applied;
-    let code_len = self.code.code_bit_len();
-    let last_chunk_pad_bytelen = self.chunk_bytelen - buf.len() % self.chunk_bytelen;
-    let code_pad_len = code_len - self.chunk_bytelen * 8;
-    let mut padded = vec![0u8; last_chunk_pad_bytelen];
-
-    let mut res = BVRep::new();
-
-    let mut byte_ptr = 0usize;
-    while byte_ptr <= buf.len() {
-      let mut target_bitslice = bitvec![u8, Msb0; 0; code_pad_len];
-      target_bitslice.extend_from_raw_slice({
-        if byte_ptr + self.chunk_bytelen > buf.len() {
-          padded.extend_from_slice(&buf[byte_ptr..buf.len()]);
-          padded.as_slice()
-        } else {
-          &buf[byte_ptr..byte_ptr + self.chunk_bytelen]
-        }
-      });
-
-      let decoded = self.code.decode(target_bitslice.as_bitslice())?;
-
-      // write result and update dict
-      let (sep, id_or_base) = match self.basis_dict.get_id(&decoded.base) {
-        Some(bit_id) => (Separator::Deduped.bv(), bit_id),
-        None => {
-          let _new_id = self.basis_dict.put_base(&decoded.base)?;
-          (Separator::AsIs.bv(), decoded.base)
-        }
-      };
-      res.extend_from_bitslice(&sep);
-      res.extend_from_bitslice(&id_or_base);
-      res.extend_from_bitslice(&decoded.deviation);
-
-      byte_ptr += self.chunk_bytelen;
-    }
-
-    res.force_align();
-    Ok(Deduped {
-      data: res.as_raw_slice().to_vec(),
-      last_chunk_pad_bytelen,
-    })
-  }
-
-  fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep> {
-    let deduped_bs = BitSlice::from_slice(&deduped.data);
-    let code_len = self.code.code_bit_len();
-    let info_len = self.code.info_bit_len();
-    let synd_len = code_len - info_len;
-    let id_bitlen = self.basis_dict.id_bitlen();
-    let mut res = BVRep::new();
-
-    let mut bitptr = 0usize;
-    let max_bit_pads = 7usize;
-    // max bit pad = 7 bits, if actual bitlen = 9 (0..8), 7bits pad is given.
-    // then bitptr = 9 here and deduped_bs.len() = 15
-    while bitptr < deduped_bs.len() - max_bit_pads {
-      let sep = match deduped_bs[bitptr] {
-        false => Separator::AsIs,
-        true => Separator::Deduped,
-      };
-      bitptr += 1;
-      let (base, step) = match sep {
-        Separator::AsIs => {
-          let part = &deduped_bs[bitptr..bitptr + info_len];
-          let _new_id = self.basis_dict.put_base(&part.to_bitvec())?;
-          (part.to_bitvec(), info_len)
-        }
-        Separator::Deduped => {
-          let part = deduped_bs[bitptr..bitptr + id_bitlen].to_owned();
-          (self.basis_dict.get_base(&part)?, id_bitlen)
-        }
-      };
-      bitptr += step;
-
-      let synd = &deduped_bs[bitptr..bitptr + synd_len];
-      bitptr += synd_len;
-
-      let encoded = self.code.encode(&base, synd)?;
-      let target_bitslice = if bitptr >= deduped_bs.len() - max_bit_pads {
-        &encoded.errored[code_len - self.chunk_bytelen * 8 + deduped.last_chunk_pad_bytelen * 8..]
-      } else {
-        &encoded.errored[code_len - self.chunk_bytelen * 8..]
-      };
-      ensure!(target_bitslice.len() % 8 == 0, "Invalid target in dup");
-      res.extend_from_bitslice(target_bitslice);
-    }
-    ensure!(
-      bitptr >= deduped_bs.len() - max_bit_pads,
-      "Invalid deduped data length"
-    );
-
-    Ok(res.as_raw_slice().to_owned())
-  }
-}
-
 /////////////////////////////////////////
 
 #[cfg(test)]
