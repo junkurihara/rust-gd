@@ -89,10 +89,6 @@ println!("> Duped size {} bytes", y.len();
 
 Currently, our implementation is based on Hamming code and Reed-Solomon code
 
-### Hamming codes of `(2^m - 1, 2^m - m - 1)` for degree `m = 4, ..., 11`
-
-In the internal `libecc` library of error-correcting codes, Hamming code with `m = 3` works. However, the code length, i.e., 7 bits, is insufficient to represent even a byte. In order to reasonably deduplicate byte-based data, *byte alignment* is needed. So, we omitted this small length parameter.
-
 ### Reed-Solomon codes over `GF(256)`
 
 Unlike Hamming codes, RS codes are **non-perfect* codes, which means the simple *sphere packing* approach cannot be directly applied to employ GD. This implies that for an arbitrary given chunk `c = [c_1,...,c_n] in GF(256)^n`, the following does **NOT** always hold in an `(n, k)` RS code `C`:
@@ -107,7 +103,7 @@ To this end, we take the following rule in our implementation.
 
 ---
 
-### 1. Simple split of given chunks
+#### 1. Simple split of given chunks
 
 Let `c = [c_1,...c_n] in GF(256)^n` be a given data chunk, and `c_i` be a byte, i.e., an element over `GF(256)`. We assume `(n, k)` RS code `C` is employed.
 
@@ -122,7 +118,7 @@ We shall regard this `cl` as equivalent to the base `cw in C`, that is, `cw = G(
 
 We also regard `cr` as equivalent to the deviation `er` satisfying `c = cw + er`.
 
-### 2. Assumption of systematic codes
+#### 2. Assumption of systematic codes
 
 The bijection `G` can be easily obtained as a *systematic generator matrix* `G = [I | P]`, where `I` is an identity matrix. Namely, the base `cw` and `er` is obtained as follows.
 
@@ -133,13 +129,13 @@ cw = cl G
 er = [0,...,0, cl P + cr],
 ```
 
-### 3. Base and deviation in deduplicated output and dictionary
+#### 3. Base and deviation in deduplicated output and dictionary
 
 In deduplicated data stream and dictionary in deduplication instance, we suppose that the base is simply given by `cl in GF(256)^k` and the deviation is `cl P + cr in GF(256)^{n-k}`.
 
 ---
 
-### Rationale and more reasonable approach for generic data
+#### Rationale and more reasonable approach for generic data
 
 Observe that in GD, we can arbitrarily assume *positions of virtual additive errors* in a given chunk to calculate the deviation. In the above method, we simply suppose that the message part `cl = [c_1,...,c_k]` of chunk `c` is error-free. Thus, we can uniquely fix the base, i.e., `cw = cl G ~ cl`, and the deviation `er = [0,...,0, cl P + cr] ~ cl P + cr` as well. Thus we can execute GD by applying this constraint.
 
@@ -162,6 +158,11 @@ and `xl` is recoded as a base and `xl P + xr` is regarded as a deviation in a de
 
 We should note that *the linear transformation `T` pushes the virtual errors contained in `c` of the specific data form to the last `n-k` symbols of a transformed chunk of `n` symbols.*
 
+### Hamming codes of `(2^m - 1, 2^m - m - 1)` for degree `m = 4, ..., 11`
+
+In the internal `libecc` library of error-correcting codes, Hamming code with `m = 3` works. However, the parameter of `m = 3` does not work in GD. This is because the code length, i.e., 7 bits, is not sufficient to deduplicate a "byte"-based data. In order to reasonably deduplicate byte-based data, *byte alignment* is needed. So, we omitted this small length parameter.
+
+**Byte alignment**: Our implementation employs an encoding method that chunks message sequences in the unit of bytes. For example, if `(15, 11)` Hamming code is employed, a 2-bytes message is divided into two one byte (= 8 bits) sequences, and pads 7 bits of zeros to each sequence to deal as 15-bits codeword of Hamming code.
 
 ## TODO
 
@@ -175,7 +176,7 @@ Following should be considered to be implemented.
 
 ## Caveats
 
-We note that `(7,4)` Hamming code doesn't work in our implementation, the internal `libecc` supports although. This is because the code length, i.e., 7 bits, is not sufficient to deduplicate a "byte", i.e., of length 8 bits. Our implementation employs an encoding method that chunks message sequences in the unit of bytes. For example, if `(15, 11)` Hamming code is employed, a 2-bytes message is divided into two one byte (= 8 bits) sequences, and pads 7 bits of zeros to each sequence to deal as 15-bits codeword of Hamming code.
+At this time this solution should be considered suitable for research and experimentation, further code and security review is needed before utilization in a production application.
 
 ## License
 
