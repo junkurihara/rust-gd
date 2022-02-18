@@ -65,6 +65,12 @@ impl GDInner {
       GDInner::ReedSolomon(x) => x.dup(deduped),
     }
   }
+  pub fn align_error(&mut self, trans: &[U8VRep]) -> Result<()> {
+    match self {
+      GDInner::Hamming(_) => Err(anyhow!("No such method for Hamming codes")),
+      GDInner::ReedSolomon(x) => x.align_error(trans),
+    }
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -172,9 +178,39 @@ mod tests {
 
   #[test]
   fn rs_align_error_works() {
-    // TODO:
-    // TODO:
-    let trans: [&[u8; 4]; 4] = [&[1, 0, 0, 0], &[1, 1, 1, 4], &[1, 1, 3, 0], &[1, 2, 0, 0]];
-    println!("{:?}", &trans);
+    let trans: Vec<Vec<u8>> = vec![
+      vec![1u8, 0, 0, 0],
+      vec![1u8, 1, 1, 4],
+      vec![1u8, 1, 3, 0],
+      vec![1u8, 2, 0, 0],
+    ];
+    let dict_size = 15;
+    let code_len = 4;
+    let msg_len = 3;
+
+    let mut gd_dedup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
+    let mut gd_dup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
+    let res_dedup = gd_dedup.align_error(&trans);
+    let res_dup = gd_dup.align_error(&trans);
+    assert!(res_dedup.is_ok());
+    assert!(res_dup.is_ok());
+
+    let words = WORD_STR.to_string().into_bytes().repeat(RS_REPEAT);
+
+    // println!("RS code ({}, {}) over GF(256)", code_len, msg_len);
+    // println!("> org size: {} bits", words.len() * 8);
+    let x = gd_dedup.dedup(&words).unwrap();
+    // println!("> deduped size {} bits", x.data.len());
+    let y = gd_dup.dup(&x).unwrap();
+    // println!("> duped size {} bits", y.len() * 8);
+    assert_eq!(y, words);
+    // println!("{:?}", gd);
+    println!(
+      "RS code ({}, {}) over GF(256) of dict size {} > Deduped rate: {:.2} %",
+      code_len,
+      msg_len,
+      dict_size,
+      100.0 * (x.data.len() as f32) / (y.len() as f32)
+    );
   }
 }

@@ -20,7 +20,7 @@ impl<C> ByteGD<C>
 where
   C: Code + ByteUnitCode,
 {
-  pub fn align_error(&self, mat_slice: &[&[u8]]) -> Result<()> {
+  pub fn align_error(&self, mat_slice: &[U8VRep]) -> Result<()> {
     // TODO:
     // TODO:
     println!("{:?}", mat_slice);

@@ -74,8 +74,8 @@ let trans: [&[u8; 4]; 4] = [
     ];
 
 // Instantiation
-let mut gd_dedup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
-let mut gd_dup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
+let mut gd_dedup = GD::ReedSolomon(4, 3).setup(15).unwrap();
+let mut gd_dup = GD::ReedSolomon(4, 3).setup(15).unwrap();
 
 // Set error alignment
 let res_dedup = gd_dedup.align_error(trans); // this simply returns Result<()>
