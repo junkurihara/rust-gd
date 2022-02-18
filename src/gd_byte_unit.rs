@@ -16,6 +16,18 @@ where
   pub chunk_bytelen: usize,
 }
 
+impl<C> ByteGD<C>
+where
+  C: Code + ByteUnitCode,
+{
+  pub fn align_error(&self, mat_slice: &[&[u8]]) -> Result<()> {
+    // TODO:
+    // TODO:
+    println!("{:?}", mat_slice);
+    Ok(())
+  }
+}
+
 impl<C> GDTrait for ByteGD<C>
 where
   C: ByteUnitCode,

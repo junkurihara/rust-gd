@@ -169,4 +169,12 @@ mod tests {
       }
     }
   }
+
+  #[test]
+  fn rs_align_error_works() {
+    // TODO:
+    // TODO:
+    let trans: [&[u8; 4]; 4] = [&[1, 0, 0, 0], &[1, 1, 1, 4], &[1, 1, 3, 0], &[1, 2, 0, 0]];
+    println!("{:?}", &trans);
+  }
 }

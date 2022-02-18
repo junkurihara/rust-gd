@@ -66,11 +66,11 @@ In GD with RS codes, **error-alignment** can be employed by
 
 ```rust:
 // Linear transformation matrix used for error-alignment. This must be nonsinglar.
-let trans: Vec<Vec<u8>> = vec![
-      vec![1, 0, 0, 0],
-      vec![1, 1, 1, 4],
-      vec![1, 1, 3, 0],
-      vec![1, 2, 0, 0],
+let trans: [&[u8; 4]; 4] = [
+      &[1, 0, 0, 0],
+      &[1, 1, 1, 4],
+      &[1, 1, 3, 0],
+      &[1, 2, 0, 0],
     ];
 
 // Instantiation
@@ -79,7 +79,7 @@ let mut gd_dup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
 
 // Set error alignment
 let res_dedup = gd_dedup.align_error(trans); // this simply returns Result<()>
-let res_dup = gd_dedup.align_error(trans);   // this simply returns Result<()>
+let res_dup = gd_dup.align_error(trans);   // this simply returns Result<()>
 assert!(res_dedup.is_ok());
 assert!(res_dup.is_ok());
 
