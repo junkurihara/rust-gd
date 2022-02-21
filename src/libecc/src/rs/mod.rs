@@ -1,7 +1,4 @@
 use super::{error::*, math::*, types::*, ByteUnitCode, Code, Decoded, Encoded};
-use field::{GF256, ORDER, ROOT};
-use matrix::Matrix;
-use vectorized::Vectorized;
 
 #[derive(Debug, Clone)]
 pub struct ReedSolomon {
