@@ -6,7 +6,6 @@ description = "Library of Error-Correcting Codes for GD"
 authors = ["Jun Kurihara"]
 homepage = "https://github.com/junkurihara/rust-gd"
 repository = "https://github.com/junkurihara/rust-gd"
-publish = false
 
 [dependencies]
 anyhow = "1.0.53"

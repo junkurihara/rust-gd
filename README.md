@@ -123,7 +123,7 @@ For GD implementation based on Hamming codes, in the internal `libecc` library o
 
 Following should be considered to be implemented.
 
-- RS codes with precoding option for **error alignment**
+- Optimization of math operations
 
 - Deletion and deviation using PRNG (Yggdrasil paper)
 
