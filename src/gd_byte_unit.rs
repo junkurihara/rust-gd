@@ -3,7 +3,11 @@ use crate::dict::BasisDict;
 use crate::error::*;
 use crate::separator::Separator;
 use bitvec::prelude::*;
-use libecc::{types::*, *};
+use libecc::{
+  math::{field::*, matrix::Matrix, vectorized::Vectorized},
+  types::*,
+  *,
+};
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Clone)]
 pub struct ByteGD<C>
@@ -14,16 +18,36 @@ where
   pub basis_dict: BasisDict<U8VRep>,
   // TODO: separator, sometimes this should be a byte?
   pub chunk_bytelen: usize,
+  pub error_alignment: Option<(Matrix<GF256>, Matrix<GF256>)>,
 }
 
 impl<C> ByteGD<C>
 where
   C: Code + ByteUnitCode,
 {
-  pub fn align_error(&self, mat_slice: &[U8VRep]) -> Result<()> {
-    // TODO:
-    // TODO:
-    println!("{:?}", mat_slice);
+  pub fn set_error_alignment(&mut self, mat_slice: &[U8VRep]) -> Result<()> {
+    ensure!(
+      mat_slice.len() == self.code.code_byte_len(),
+      "Invalid matrix size"
+    );
+    let mat = if let Ok(m) = Matrix::new(
+      &mat_slice
+        .iter()
+        .map(|v| v.iter().map(|x| GF256(*x)).collect::<Vec<GF256>>())
+        .collect::<Vec<Vec<GF256>>>(),
+    ) {
+      m
+    } else {
+      bail!("Failed to set matrix");
+    };
+    ensure!(mat.is_square(), "Matrix for error alignment must be square");
+    let inv = if let Ok(m) = mat.inverse_left_submatrix(GF256(0), GF256(1)) {
+      m
+    } else {
+      bail!("Singular matrix!");
+    };
+    self.error_alignment = Some((mat, inv));
+
     Ok(())
   }
 }
@@ -50,6 +74,7 @@ where
       } else {
         &buf[byte_ptr..byte_ptr + self.chunk_bytelen]
       };
+      // TODO: Add trans for error alignment
 
       let decoded = self.code.decode(target)?;
 
@@ -121,6 +146,7 @@ where
       } else {
         &encoded.errored[..]
       };
+      // TODO: Add inv trans for error alignment
       res.extend_from_slice(target);
     }
 

@@ -78,8 +78,8 @@ let mut gd_dedup = GD::ReedSolomon(4, 3).setup(15).unwrap();
 let mut gd_dup = GD::ReedSolomon(4, 3).setup(15).unwrap();
 
 // Set error alignment
-let res_dedup = gd_dedup.align_error(trans); // this simply returns Result<()>
-let res_dup = gd_dup.align_error(trans);   // this simply returns Result<()>
+let res_dedup = gd_dedup.set_error_alignment(trans); // this simply returns Result<()>
+let res_dup = gd_dup.set_error_alignment(trans);   // this simply returns Result<()>
 assert!(res_dedup.is_ok());
 assert!(res_dup.is_ok());
 

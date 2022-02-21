@@ -51,6 +51,10 @@ where
   pub fn can_try_diag(&self) -> bool {
     self.row_size() <= self.col_size()
   }
+  pub fn is_square(&self) -> bool {
+    self.row_size() == self.col_size()
+  }
+
   #[allow(dead_code)]
   pub fn is_identity_matrix(&self, zero_t: T, identity_t: T) -> bool {
     if self.col_size() != self.row_size() {

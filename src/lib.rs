@@ -23,6 +23,7 @@ impl GD {
         code: ReedSolomon::new(*a, *b)?,
         basis_dict: BasisDict::<U8VRep>::new(dict_size),
         chunk_bytelen: *a,
+        error_alignment: None,
       })),
 
       GD::Hamming(a) => {
@@ -65,10 +66,10 @@ impl GDInner {
       GDInner::ReedSolomon(x) => x.dup(deduped),
     }
   }
-  pub fn align_error(&mut self, trans: &[U8VRep]) -> Result<()> {
+  pub fn set_error_alignment(&mut self, trans: &[U8VRep]) -> Result<()> {
     match self {
       GDInner::Hamming(_) => Err(anyhow!("No such method for Hamming codes")),
-      GDInner::ReedSolomon(x) => x.align_error(trans),
+      GDInner::ReedSolomon(x) => x.set_error_alignment(trans),
     }
   }
 }
@@ -190,8 +191,8 @@ mod tests {
 
     let mut gd_dedup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
     let mut gd_dup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
-    let res_dedup = gd_dedup.align_error(&trans);
-    let res_dup = gd_dup.align_error(&trans);
+    let res_dedup = gd_dedup.set_error_alignment(&trans);
+    let res_dup = gd_dup.set_error_alignment(&trans);
     assert!(res_dedup.is_ok());
     assert!(res_dup.is_ok());
 

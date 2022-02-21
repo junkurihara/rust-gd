@@ -1,8 +1,4 @@
-mod field;
-mod matrix;
-mod vectorized;
-
-use super::{error::*, types::*, ByteUnitCode, Code, Decoded, Encoded};
+use super::{error::*, math::*, types::*, ByteUnitCode, Code, Decoded, Encoded};
 use field::{GF256, ORDER, ROOT};
 use matrix::Matrix;
 use vectorized::Vectorized;

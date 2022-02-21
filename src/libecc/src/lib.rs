@@ -1,4 +1,5 @@
 mod error;
+pub mod math;
 pub mod types;
 mod util;
 
