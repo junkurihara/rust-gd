@@ -85,7 +85,7 @@ The above operations are simply concatenated into the following:
 ```
 T= [Tl | Tr]
 cw = c Tl G = [c Tl, c Tl P]
-er = [0,..., c Tl P + c Tr]
+er = [0,...,0, c Tl P + c Tr]
 ```
 
 Since it is known that we need to properly configure virtual error positions to achieve better deduplication performance, code length and error-positions have been considered to be dynamically adjusted by splitting a chunk into subchunks forming a specific pattern of fluctuationss. In contrast, the error-alignment approach simply align errors in data chunk to the last positions, and a data chunk is processed by a single GD instance with single code parameter.

@@ -104,10 +104,7 @@ impl Code for Hamming {
       "Invalid error calculation"
     );
 
-    Ok(Encoded::<Self::Vector> {
-      errored: flipped,
-      codeword: res,
-    })
+    Ok(Encoded::<Self::Vector>(flipped))
   }
 }
 
@@ -163,20 +160,17 @@ mod tests {
     let data = bitvec![u8, Msb0; 1,0,0,0];
     let syndrome = bitvec![u8,Msb0; 0,0,0];
     let parity = hamming.encode(&data, &syndrome).unwrap();
-    assert_eq!("1000101", parity.errored.bitdump());
-    assert_eq!("1000101", parity.codeword.bitdump());
+    assert_eq!("1000101", parity.0.bitdump());
 
     let data = bitvec![u8, Msb0; 1,0,1,0];
     let syndrome = bitvec![u8,Msb0; 1,1,0];
     let parity = hamming.encode(&data, &syndrome).unwrap();
-    assert_eq!("1000011", parity.errored.bitdump());
-    assert_eq!("1010011", parity.codeword.bitdump());
+    assert_eq!("1000011", parity.0.bitdump());
 
     let data = bitvec![u8, Msb0; 1,0,0,0];
     let syndrome = bitvec![u8,Msb0; 1,0,1];
     let parity = hamming.encode(&data, &syndrome).unwrap();
-    assert_eq!("1000101", parity.codeword.bitdump());
-    assert_eq!("0000101", parity.errored.bitdump());
+    assert_eq!("0000101", parity.0.bitdump());
   }
 
   #[test]

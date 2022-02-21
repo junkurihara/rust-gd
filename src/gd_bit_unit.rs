@@ -106,9 +106,9 @@ where
 
       let encoded = self.code.encode(&base, synd)?;
       let target_bitslice = if bitptr >= deduped_bs.len() - max_bit_pads {
-        &encoded.errored[code_len - self.chunk_bytelen * 8 + deduped.last_chunk_pad_bytelen * 8..]
+        &encoded.0[code_len - self.chunk_bytelen * 8 + deduped.last_chunk_pad_bytelen * 8..]
       } else {
-        &encoded.errored[code_len - self.chunk_bytelen * 8..]
+        &encoded.0[code_len - self.chunk_bytelen * 8..]
       };
       ensure!(target_bitslice.len() % 8 == 0, "Invalid target in dup");
       res.extend_from_bitslice(target_bitslice);

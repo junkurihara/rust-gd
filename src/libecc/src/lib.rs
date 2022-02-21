@@ -1,5 +1,5 @@
 mod error;
-pub mod math;
+mod math;
 pub mod types;
 mod util;
 
@@ -9,6 +9,7 @@ mod rs;
 use bitvec::prelude::*;
 use error::*;
 pub use hamming::Hamming;
+pub use math::*;
 pub use rs::ReedSolomon;
 use types::*;
 pub use util::{bitdump_bitslice, hexdump_bitslice, hexdump_slice};
@@ -27,6 +28,7 @@ pub trait BitUnitCode: Code<Slice = BSRep, Vector = BVRep> {
 pub trait ByteUnitCode: Code<Slice = U8SRep, Vector = U8VRep> {
   fn code_byte_len(&self) -> usize;
   fn info_byte_len(&self) -> usize;
+  fn set_precoding(&mut self, pre: &[U8VRep]) -> Result<()>;
 }
 
 #[derive(Debug, Clone)]
@@ -36,10 +38,7 @@ pub struct Decoded<T> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Encoded<T> {
-  pub codeword: T,
-  pub errored: T,
-}
+pub struct Encoded<T>(pub T);
 
 pub trait BitDump {
   fn bitdump(&self) -> String;

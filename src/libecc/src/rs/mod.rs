@@ -6,6 +6,8 @@ pub struct ReedSolomon {
   pub info_symbol_len: usize,             // k over GF(2^8)
   pub deviation_symbol_len: usize,        // deviation length over GF(2^8)
   generator_matrix_parity: Matrix<GF256>, // parity part P of systematic generator matrix G = [I P] as a look-up table for encoding
+  precoding: Option<Matrix<GF256>>,       // precoding matrix for error_alignment
+  postcoding: Option<Matrix<GF256>>,      // postcoding matrix for error_alignment
 }
 
 impl ReedSolomon {
@@ -15,7 +17,7 @@ impl ReedSolomon {
       "Invalid params"
     );
 
-    let vandermonde_matrix_src = Matrix::new(&{
+    let vandermonde_matrix = Matrix::new(&{
       (0..info_symbol_len)
         .map(|row| {
           (0..code_symbol_len)
@@ -23,34 +25,42 @@ impl ReedSolomon {
             .collect()
         })
         .collect::<Vec<Vec<GF256>>>()
-    });
-    ensure!(
-      vandermonde_matrix_src.is_ok(),
-      "Failed to instantiate RS generator matrix"
-    );
-    let vandermonde_matrix = vandermonde_matrix_src.unwrap();
+    })?;
 
-    let inverse_matrix_src = vandermonde_matrix
+    let inverse_matrix = vandermonde_matrix
       .clone()
-      .inverse_left_submatrix(GF256(0), GF256(1));
-    ensure!(
-      inverse_matrix_src.is_ok(),
-      "Failed to make inversion of RS generator matrix"
-    );
+      .inverse_left_submatrix(GF256(0), GF256(1))?;
 
     // Systematic generator matrix for ease
-    let systematic_generator_matrix = inverse_matrix_src.unwrap() * vandermonde_matrix;
-    let parity_part_src = systematic_generator_matrix
+    let systematic_generator_matrix = inverse_matrix * vandermonde_matrix;
+    let parity_part = systematic_generator_matrix
       .clone()
-      .column_submat(info_symbol_len, code_symbol_len);
-    ensure!(parity_part_src.is_ok(), "Failed to get parity submatrix");
+      .column_submat(info_symbol_len, code_symbol_len)?;
 
     Ok(ReedSolomon {
       code_symbol_len,
       info_symbol_len,
       deviation_symbol_len: code_symbol_len - info_symbol_len, // redundancy length
-      generator_matrix_parity: parity_part_src.unwrap(),
+      generator_matrix_parity: parity_part,
+      precoding: None,
+      postcoding: None,
     })
+  }
+
+  fn msg_encode_gf256_within(
+    &self,
+    message: &Vectorized<GF256>,
+    dev: &mut Vectorized<GF256>,
+  ) -> Result<()> {
+    let parity_gf256 = self
+      .generator_matrix_parity
+      .clone()
+      .mul_on_vec_from_right(message); //Matrix(vec![message.to_owned()]) * self.generator_matrix_parity.clone();
+
+    // Deviation is defined as the difference between error-free codeword and erroneous one at the redundancy part of the codeword.
+    dev.add_within(parity_gf256);
+
+    Ok(())
   }
 }
 
@@ -61,6 +71,22 @@ impl ByteUnitCode for ReedSolomon {
   fn info_byte_len(&self) -> usize {
     self.info_symbol_len
   }
+  fn set_precoding(&mut self, pre: &[U8VRep]) -> Result<()> {
+    let mat = Matrix::of_gf256_from_u8(pre);
+    ensure!(mat.is_ok(), "Failed to set matrix");
+    self.precoding = Some(mat.unwrap());
+
+    let mat = self.precoding.as_ref().unwrap();
+    ensure!(mat.is_square(), "Matrix for error alignment must be square");
+    let inv = if let Ok(m) = mat.inverse_left_submatrix(GF256(0), GF256(1)) {
+      m
+    } else {
+      bail!("Singular matrix!");
+    };
+    self.postcoding = Some(inv);
+    // assert!((mat.clone() * inv.clone()).is_identity_matrix(GF256(0), GF256(1)));
+    Ok(())
+  }
 }
 impl Code for ReedSolomon {
   type Slice = U8SRep;
@@ -68,27 +94,26 @@ impl Code for ReedSolomon {
 
   fn decode(&self, data: &Self::Slice) -> Result<Decoded<Self::Vector>> {
     ensure!(data.len() == self.code_symbol_len, "Invalid data length");
-    // note that the first info_symbol_len symbols are assumed to be error-free
-    // c = uG = u[I P] = [u uP]
-    let error_free_message = &data[0..self.info_symbol_len];
-    let error_free_dev = vec![0u8; self.deviation_symbol_len];
+    let mut precoded = Vectorized::of_gf256_from_u8(data);
+    if self.precoding.is_some() {
+      precoded = self
+        .precoding
+        .as_ref()
+        .unwrap()
+        .mul_on_vec_from_right(&precoded);
+    }
 
-    let error_free_encoded = if let Ok(v) = self.encode(error_free_message, &error_free_dev) {
-      v
-    } else {
-      bail!("Failed to process data");
-    };
+    let (message_part, mut parity_part) = (
+      precoded.subvec(0, self.info_symbol_len),
+      precoded.subvec(self.info_symbol_len, self.code_symbol_len),
+    );
 
-    let base = (&error_free_encoded.codeword[0..self.info_symbol_len]).to_vec();
+    self.msg_encode_gf256_within(&message_part, &mut parity_part)?;
 
-    let errored_deviation = &data[self.info_symbol_len..];
-    let deviation = (&error_free_encoded.codeword[self.info_symbol_len..])
-      .iter()
-      .zip(errored_deviation.iter())
-      .map(|(v, w)| (GF256(*v) + GF256(*w)).0)
-      .collect();
-
-    Ok(Decoded::<Self::Vector> { base, deviation })
+    Ok(Decoded::<Self::Vector> {
+      base: message_part.to_u8_vec(),
+      deviation: parity_part.to_u8_vec(),
+    })
   }
 
   fn encode(&self, message: &Self::Slice, dev: &Self::Slice) -> Result<Encoded<Self::Vector>> {
@@ -100,31 +125,23 @@ impl Code for ReedSolomon {
       dev.len() == self.deviation_symbol_len,
       "Invalid deviation length"
     );
-    let msg_gf256 = if let Ok(m) = Matrix::new(&vec![message
-      .into_iter()
-      .map(|x| GF256(*x))
-      .collect::<Vec<GF256>>()])
-    {
-      m
+    let (msg_gf256, mut dev_gf256) = (
+      Vectorized::of_gf256_from_u8(message),
+      Vectorized::of_gf256_from_u8(dev),
+    );
+    self.msg_encode_gf256_within(&msg_gf256, &mut dev_gf256)?;
+
+    let mut cw = msg_gf256.clone();
+    cw.extend_from_slice(&dev_gf256.0);
+
+    let postcoded = if self.postcoding.is_some() {
+      // TODO: More efficient precoding scheme
+      self.postcoding.as_ref().unwrap().mul_on_vec_from_right(&cw)
     } else {
-      bail!("Something wrong in matrix conversion of message")
+      cw
     };
-    let parity_gf256 = msg_gf256 * self.generator_matrix_parity.clone();
-    ensure!(parity_gf256.row_size() == 1, "Failed to encode");
 
-    // Deviation is defined as the difference between error-free codeword and erroneous one at the redundancy part of the codeword.
-    let errored_parity_gf256 = parity_gf256.0[0].clone()
-      + Vectorized(dev.into_iter().map(|v| GF256(*v)).collect::<Vec<GF256>>());
-
-    let parity: Vec<u8> = parity_gf256.0[0].0.iter().map(|x| x.0).collect();
-    let mut codeword = message.to_vec().clone();
-    codeword.extend_from_slice(parity.as_slice());
-
-    let errored_parity: Vec<u8> = errored_parity_gf256.0.iter().map(|v| v.0).collect();
-    let mut errored = message.to_vec().clone();
-    errored.extend_from_slice(errored_parity.as_slice());
-
-    Ok(Encoded::<Self::Vector> { codeword, errored })
+    Ok(Encoded::<Self::Vector>(postcoded.to_u8_vec()))
   }
 }
 
@@ -143,7 +160,7 @@ mod tests {
     let message = (0u8..K as u8).map(|x| x).collect::<U8VRep>();
     let dev = &[0u8; N - K];
     let encoded = rs.encode(&message, dev).unwrap();
-    let decoded = rs.decode(&encoded.errored).unwrap();
+    let decoded = rs.decode(&encoded.0).unwrap();
 
     assert_eq!(message, decoded.base);
     assert_eq!(dev.to_vec(), decoded.deviation);
@@ -156,7 +173,7 @@ mod tests {
     let message = (0u8..K as u8).map(|x| x).collect::<U8VRep>();
     let dev = (0u8..(N - K) as u8).rev().map(|x| x).collect::<U8VRep>();
     let encoded = rs.encode(&message, &dev).unwrap();
-    let decoded = rs.decode(&encoded.errored).unwrap();
+    let decoded = rs.decode(&encoded.0).unwrap();
 
     assert_eq!(message, decoded.base);
     assert_eq!(dev, decoded.deviation);
@@ -170,8 +187,7 @@ mod tests {
     let message = &[0u8; K];
     let dev = &[0u8; N - K];
     let encoded = rs.encode(message, dev).unwrap();
-    assert_eq!(encoded.codeword, vec![0u8; N]);
-    assert_eq!(encoded.errored, vec![0u8; N]);
+    assert_eq!(encoded.0, vec![0u8; N]);
 
     let message = &[1u8; K];
     let dev = &[1u8; N - K];
@@ -194,8 +210,7 @@ mod tests {
     let mut ans_err = message.to_vec();
     ans_cw.extend_from_slice(ans_cw_parity.as_slice());
     ans_err.extend_from_slice(ans_err_parity.as_slice());
-    assert_eq!(encoded.codeword, ans_cw);
-    assert_eq!(encoded.errored, ans_err);
+    assert_eq!(encoded.0, ans_err);
 
     let message = (0u8..K as u8).map(|x| x).collect::<U8VRep>();
     let dev = &[0u8; N - K];
@@ -214,8 +229,7 @@ mod tests {
       .collect::<U8VRep>();
     let mut ans_cw = message.to_vec();
     ans_cw.extend_from_slice(ans_cw_parity.as_slice());
-    assert_eq!(encoded.codeword, ans_cw);
-    assert_eq!(encoded.errored, ans_cw);
+    assert_eq!(encoded.0, ans_cw);
   }
 
   #[test]

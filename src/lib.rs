@@ -23,7 +23,6 @@ impl GD {
         code: ReedSolomon::new(*a, *b)?,
         basis_dict: BasisDict::<U8VRep>::new(dict_size),
         chunk_bytelen: *a,
-        error_alignment: None,
       })),
 
       GD::Hamming(a) => {

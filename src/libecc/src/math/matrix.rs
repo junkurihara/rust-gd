@@ -1,4 +1,4 @@
-use super::vectorized::Vectorized;
+use super::{field::*, vectorized::Vectorized};
 use crate::error::*;
 use core::fmt::Debug;
 use core::ops::{Add, Div, Mul, Sub};
@@ -25,6 +25,27 @@ where
       })
       .collect();
     Matrix(res)
+  }
+}
+
+impl Matrix<GF256> {
+  pub fn of_gf256_from_u8(src: &[Vec<u8>]) -> Result<Self> {
+    Matrix::new(
+      &src
+        .iter()
+        .map(|v| v.iter().map(|x| GF256(*x)).collect::<Vec<GF256>>())
+        .collect::<Vec<Vec<GF256>>>(),
+    )
+  }
+
+  pub fn mul_on_vec_from_right(&self, coef: &Vectorized<GF256>) -> Vectorized<GF256> {
+    let init = Vectorized(vec![GF256(0); self.col_size()]);
+    let v = self
+      .0
+      .iter()
+      .enumerate()
+      .fold(init, |acc, (i, x)| acc + x.mul_scalar(coef.0[i]));
+    v
   }
 }
 
@@ -55,7 +76,6 @@ where
     self.row_size() == self.col_size()
   }
 
-  #[allow(dead_code)]
   pub fn is_identity_matrix(&self, zero_t: T, identity_t: T) -> bool {
     if self.col_size() != self.row_size() {
       false

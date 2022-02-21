@@ -1,7 +1,21 @@
+use crate::types::U8VRep;
+
+use super::field::GF256;
 use core::ops::{Add, Mul, Sub};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Vectorized<T>(pub Vec<T>);
+
+impl Vectorized<GF256> {
+  pub fn of_gf256_from_u8(slice: &[u8]) -> Self {
+    let v: Vec<GF256> = slice.iter().map(|x| GF256(*x)).collect();
+    Vectorized(v)
+  }
+
+  pub fn to_u8_vec(&self) -> U8VRep {
+    self.0.iter().map(|x| x.0).collect()
+  }
+}
 
 impl<T> Vectorized<T> {
   pub fn extend_from_slice(&mut self, slice: &[T])

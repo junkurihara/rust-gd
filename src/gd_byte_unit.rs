@@ -3,7 +3,7 @@ use crate::dict::BasisDict;
 use crate::error::*;
 use crate::separator::Separator;
 use bitvec::prelude::*;
-use libecc::{math::*, types::*, *};
+use libecc::{types::*, *};
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Clone)]
 pub struct ByteGD<C>
@@ -14,7 +14,6 @@ where
   pub basis_dict: BasisDict<U8VRep>,
   // TODO: separator, sometimes this should be a byte?
   pub chunk_bytelen: usize,
-  pub error_alignment: Option<(Matrix<GF256>, Matrix<GF256>)>,
 }
 
 impl<C> ByteGD<C>
@@ -26,27 +25,7 @@ where
       mat_slice.len() == self.code.code_byte_len(),
       "Invalid matrix size"
     );
-    let mat = if let Ok(m) = Matrix::new(
-      &mat_slice
-        .iter()
-        .map(|v| v.iter().map(|x| GF256(*x)).collect::<Vec<GF256>>())
-        .collect::<Vec<Vec<GF256>>>(),
-    ) {
-      m
-    } else {
-      bail!("Failed to set matrix");
-    };
-    ensure!(mat.is_square(), "Matrix for error alignment must be square");
-    let inv = if let Ok(m) = mat.inverse_left_submatrix(GF256(0), GF256(1)) {
-      m
-    } else {
-      bail!("Singular matrix!");
-    };
-    // assert!((mat.clone() * inv.clone()).is_identity_matrix(GF256(0), GF256(1)));
-
-    self.error_alignment = Some((mat, inv));
-
-    Ok(())
+    self.code.set_precoding(mat_slice)
   }
 }
 
@@ -72,17 +51,7 @@ where
       } else {
         &buf[byte_ptr..byte_ptr + self.chunk_bytelen]
       };
-      let decoded = if self.error_alignment.is_some() {
-        // TODO: More efficient precoding scheme
-        let target_v = Matrix::new(&[target.iter().map(|x| GF256(*x)).collect::<Vec<GF256>>()])
-          .unwrap()
-          * self.error_alignment.clone().unwrap().0;
-        self
-          .code
-          .decode(&target_v.0[0].0.iter().map(|x| x.0).collect::<Vec<u8>>())?
-      } else {
-        self.code.decode(target)?
-      };
+      let decoded = self.code.decode(target)?;
 
       // write result and update dict
       let (sep, id_or_base) = match self.basis_dict.get_id(&decoded.base) {
@@ -147,23 +116,11 @@ where
       bitptr += dev_bitlen;
 
       let encoded = self.code.encode(&base, &dev)?;
-      let errored = if self.error_alignment.is_some() {
-        // TODO: More efficient p scheme
-        let errored_v = Matrix::new(&[encoded
-          .errored
-          .iter()
-          .map(|x| GF256(*x))
-          .collect::<Vec<GF256>>()])
-        .unwrap()
-          * self.error_alignment.clone().unwrap().1;
-        errored_v.0[0].0.iter().map(|x| x.0).collect::<Vec<u8>>()
-      } else {
-        encoded.errored
-      };
+
       let target = if bitptr >= deduped_bs.len() - max_bit_pads {
-        &errored[deduped.last_chunk_pad_bytelen..]
+        &encoded.0[deduped.last_chunk_pad_bytelen..]
       } else {
-        &errored[..]
+        &encoded.0[..]
       };
       res.extend_from_slice(target);
     }
