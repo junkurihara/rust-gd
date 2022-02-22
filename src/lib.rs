@@ -17,7 +17,11 @@ pub enum GD {
   Hamming(usize),
 }
 impl GD {
-  pub fn setup(&self, dict_size: usize) -> Result<GDInner> {
+  pub async fn setup(&self, dict_size: usize) -> Result<GDInner> {
+    // TODO: consider parallelization using async
+    self.setup_sync(dict_size)
+  }
+  pub fn setup_sync(&self, dict_size: usize) -> Result<GDInner> {
     match self {
       GD::ReedSolomon(a, b) => Ok(GDInner::ReedSolomon(ByteGD {
         code: ReedSolomon::new(*a, *b)?,
@@ -52,14 +56,30 @@ impl GDInner {
       GDInner::ReedSolomon(x) => x.unit_check(),
     }
   }
-  pub fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped> {
+  pub fn dedup_sync(&mut self, buf: &U8SRep) -> Result<Deduped> {
     match self {
       GDInner::Hamming(x) => x.dedup(buf),
       GDInner::ReedSolomon(x) => x.dedup(buf),
     }
   }
 
-  pub fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep> {
+  pub fn dup_sync(&mut self, deduped: &Deduped) -> Result<U8VRep> {
+    match self {
+      GDInner::Hamming(x) => x.dup(deduped),
+      GDInner::ReedSolomon(x) => x.dup(deduped),
+    }
+  }
+  // Asynchronous APIs
+  // TODO: consider some parallelization only for 'decoding' operation to split chunk into base and deviation.
+  // TODO: also consider for 'encoding' as well
+  pub async fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped> {
+    match self {
+      GDInner::Hamming(x) => x.dedup(buf),
+      GDInner::ReedSolomon(x) => x.dedup(buf),
+    }
+  }
+
+  pub async fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep> {
     match self {
       GDInner::Hamming(x) => x.dup(deduped),
       GDInner::ReedSolomon(x) => x.dup(deduped),
@@ -98,22 +118,28 @@ mod tests {
   const WORD_STR: &str =
     "寿限無(じゅげむ)寿限無(じゅげむ)五劫(ごこう)のすりきれ海砂利(かいじゃり)padpadpadpadpadpadpadpad"; // Byte alignment is quire needed...
 
-  #[test]
-  fn hamming_works() {
+  #[tokio::test]
+  async fn hamming_works() {
     let words = WORD_STR.to_string().repeat(128).into_bytes();
 
     for hamming_deg in 4..11 {
       let hamming_dict_size = 511;
 
-      let mut gd_dedup = GD::Hamming(hamming_deg).setup(hamming_dict_size).unwrap();
-      let mut gd_dup = GD::Hamming(hamming_deg).setup(hamming_dict_size).unwrap();
+      let mut gd_dedup = GD::Hamming(hamming_deg)
+        .setup(hamming_dict_size)
+        .await
+        .unwrap();
+      let mut gd_dup = GD::Hamming(hamming_deg)
+        .setup(hamming_dict_size)
+        .await
+        .unwrap();
       // gd_dedup.unit_check();
 
       // println!("Hamimng code deg = {}", hamming_deg);
       // println!("> org size: {} bits", words.len() * 8);
-      let x = gd_dedup.dedup(&words).unwrap();
+      let x = gd_dedup.dedup(&words).await.unwrap();
       // println!("> deduped size {} bits", x.data.len());
-      let y = gd_dup.dup(&x).unwrap();
+      let y = gd_dup.dup(&x).await.unwrap();
       // println!("> duped size {} bits", y.len() * 8);
       assert_eq!(y, words);
       println!(
@@ -129,8 +155,8 @@ mod tests {
   const RS_DICT_PARAM: usize = 2;
   const RS_REPEAT: usize = 128;
 
-  #[test]
-  fn rs_works() {
+  #[tokio::test]
+  async fn rs_works() {
     let mut rng = rand::thread_rng();
     let words_org = WORD_STR.to_string().into_bytes().repeat(RS_REPEAT);
 
@@ -138,8 +164,14 @@ mod tests {
       for msg_len in 2isize.max(code_len as isize - 8) as usize..code_len {
         let dict_size = (1 << ((code_len - msg_len) * RS_DICT_PARAM).min(RS_MAX_DICT_BITS)) - 1;
 
-        let mut gd_dedup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
-        let mut gd_dup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
+        let mut gd_dedup = GD::ReedSolomon(code_len, msg_len)
+          .setup(dict_size)
+          .await
+          .unwrap();
+        let mut gd_dup = GD::ReedSolomon(code_len, msg_len)
+          .setup(dict_size)
+          .await
+          .unwrap();
         // gd_dedup.unit_check();
 
         let words: Vec<u8> = words_org
@@ -158,9 +190,9 @@ mod tests {
 
         // println!("RS code ({}, {}) over GF(256)", code_len, msg_len);
         // println!("> org size: {} bits", words.len() * 8);
-        let x = gd_dedup.dedup(&words).unwrap();
+        let x = gd_dedup.dedup(&words).await.unwrap();
         // println!("> deduped size {} bits", x.data.len());
-        let y = gd_dup.dup(&x).unwrap();
+        let y = gd_dup.dup(&x).await.unwrap();
         // println!("> duped size {} bits", y.len() * 8);
         assert_eq!(y, words);
         // println!("{:?}", gd);
@@ -176,8 +208,8 @@ mod tests {
     }
   }
 
-  #[test]
-  fn rs_align_error_works() {
+  #[tokio::test]
+  async fn rs_align_error_works() {
     let trans: Vec<Vec<u8>> = vec![
       vec![1u8, 0, 0, 0],
       vec![1u8, 1, 1, 4],
@@ -188,8 +220,14 @@ mod tests {
     let code_len = 4;
     let msg_len = 3;
 
-    let mut gd_dedup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
-    let mut gd_dup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
+    let mut gd_dedup = GD::ReedSolomon(code_len, msg_len)
+      .setup(dict_size)
+      .await
+      .unwrap();
+    let mut gd_dup = GD::ReedSolomon(code_len, msg_len)
+      .setup(dict_size)
+      .await
+      .unwrap();
     let res_dedup = gd_dedup.set_error_alignment(&trans);
     let res_dup = gd_dup.set_error_alignment(&trans);
     assert!(res_dedup.is_ok());
@@ -199,9 +237,9 @@ mod tests {
 
     // println!("RS code ({}, {}) over GF(256)", code_len, msg_len);
     // println!("> org size: {} bits", words.len() * 8);
-    let x = gd_dedup.dedup(&words).unwrap();
+    let x = gd_dedup.dedup(&words).await.unwrap();
     // println!("> deduped size {} bits", x.data.len());
-    let y = gd_dup.dup(&x).unwrap();
+    let y = gd_dup.dup(&x).await.unwrap();
     // println!("> duped size {} bits", y.len() * 8);
     assert_eq!(y, words);
     // println!("{:?}", gd);

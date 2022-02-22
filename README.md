@@ -47,16 +47,20 @@ let msg_len = 124;  // message length over GF(256), i.e., K in (N, K) RS code
 let dict_size = 127; // max entry size of a dictionary used in GD process
 
 // GD instance for deduplication (compress)
-let mut gd_dedup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
+let mut gd_dedup = GD::ReedSolomon(code_len, msg_len).setup_sync(dict_size).unwrap();
+// let mut gd_dedup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).await.unwrap(); // Async API
 
 // GD instance for duplication (decompress)
 let mut gd_dup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).unwrap();
+// let mut gd_dup = GD::ReedSolomon(code_len, msg_len).setup(dict_size).await.unwrap(); // Async API
 
 // struct Deduped = {pub data: Vec<u8>, pub last_chunk_pad_bytelen: usize}
-let deduped: Deduped = gd_dedup.dedup(to_be_deduped).unwrap();
+let deduped: Deduped = gd_dedup.dedup_sync(to_be_deduped).unwrap();
+// let deduped: Deduped = gd_dedup.dedup(to_be_deduped).await.unwrap(); Async API
 println!("> Deduped data size is {} bytes", x.data.len());
 
-let duped: Vec<u8> = gd_dup.dup(&deduped).unwrap();
+let duped: Vec<u8> = gd_dup.dup_sync(&deduped).unwrap();
+// let duped: Vec<u8> = gd_dup.dup(&deduped).await.unwrap(); // Async API.
 println!("> Duped size {} bytes", y.len();
 
 assert_eq!(duped, words);
@@ -74,8 +78,8 @@ let trans: [&[u8; 4]; 4] = [
     ];
 
 // Instantiation
-let mut gd_dedup = GD::ReedSolomon(4, 3).setup(15).unwrap();
-let mut gd_dup = GD::ReedSolomon(4, 3).setup(15).unwrap();
+let mut gd_dedup = GD::ReedSolomon(4, 3).setup(15).await.unwrap();
+let mut gd_dup = GD::ReedSolomon(4, 3).setup(15).await.unwrap();
 
 // Set error alignment
 let res_dedup = gd_dedup.set_error_alignment(trans); // this simply returns Result<()>
@@ -98,16 +102,20 @@ let to_be_deduped: &[u8] =
     "寿限無(じゅげむ)寿限無(じゅげむ)五劫(ごこう)のすりきれ海砂利(かいじゃり)padpadpadpadpadpadpadpad".to_string().repeat(128).as_bytes()
 
 // GD instance for deduplication (compress)
-let mut gd_dedup = GD::Hamming(hamming_deg).setup(hamming_dict_size).unwrap();
+let mut gd_dedup = GD::Hamming(hamming_deg).setup_sync(hamming_dict_size).unwrap();
+// let mut gd_dedup = GD::Hamming(hamming_deg).setup(hamming_dict_size).await.unwrap(); // Async API
 
 // GD instance for duplication (decompress)
-let mut gd_dup = GD::Hamming(hamming_deg).setup(hamming_dict_size).unwrap();
+let mut gd_dup = GD::Hamming(hamming_deg).setup_sync(hamming_dict_size).unwrap();
+// let mut gd_dup = GD::Hamming(hamming_deg).setup(hamming_dict_size).await.unwrap(); // Async API
 
 // struct Deduped = {pub data: Vec<u8>, pub last_chunk_pad_bytelen: usize}
-let deduped: Deduped = gd_dedup.dedup(to_be_deduped).unwrap();
+let deduped: Deduped = gd_dedup.dedup_sync(to_be_deduped).unwrap();
+// let deduped: Deduped = gd_dedup.dedup(to_be_deduped).await.unwrap(); Async API
 println!("> Deduped data size is {} bytes", x.data.len());
 
-let duped: Vec<u8> = gd_dup.dup(&deduped).unwrap();
+let duped: Vec<u8> = gd_dup.dup_sync(&deduped).unwrap();
+// let duped: Vec<u8> = gd_dup.dup(&deduped).await.unwrap(); // Async API.
 println!("> Duped size {} bytes", y.len();
 ```
 
@@ -124,6 +132,8 @@ For GD implementation based on Hamming codes, in the internal `libecc` library o
 Following should be considered to be implemented.
 
 - Benchmark for the performance of deduplication
+
+- Async for encoding and decoding operation inside dedup and dup process without breaking the order of dictionary lookup/insertion.
 
 - Optimization of math operations
 

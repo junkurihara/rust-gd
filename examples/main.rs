@@ -6,7 +6,7 @@ use std::io::{self, Read, Write};
 
 const BUFFER_SIZE: usize = 512 * 1024;
 
-fn proc(reader: &mut dyn Read, writer: &mut dyn Write) {
+async fn proc(reader: &mut dyn Read, writer: &mut dyn Write) {
   let mut buf = [0u8; BUFFER_SIZE];
 
   let dict_size = 15;
@@ -14,9 +14,11 @@ fn proc(reader: &mut dyn Read, writer: &mut dyn Write) {
   let rs_info_len = 4;
   let mut gd_dedup = GD::ReedSolomon(rs_code_len, rs_info_len)
     .setup(dict_size)
+    .await
     .unwrap();
   let mut gd_dup = GD::ReedSolomon(rs_code_len, rs_info_len)
     .setup(dict_size)
+    .await
     .unwrap();
   // let trans: Vec<Vec<u8>> = vec![
   //   vec![1u8, 0, 0, 0, 0],
@@ -37,7 +39,7 @@ fn proc(reader: &mut dyn Read, writer: &mut dyn Write) {
     }
     /////////////////////////
     // GD proc here
-    if let Ok(deduped) = gd_dedup.dedup(&buf[..n]) {
+    if let Ok(deduped) = gd_dedup.dedup(&buf[..n]).await {
       // println!("{}", hexdump(deduped.as_raw_slice()));
       let _ = writer.write(
         format!(
@@ -46,7 +48,7 @@ fn proc(reader: &mut dyn Read, writer: &mut dyn Write) {
         )
         .as_bytes(),
       );
-      let dup = gd_dup.dup(&deduped);
+      let dup = gd_dup.dup(&deduped).await;
       let _ = writer
         .write(format!("> Duped:\n> {}\n", String::from_utf8(dup.unwrap()).unwrap()).as_bytes());
       println!("> Compressed {} -> {} (bytes)", n, deduped.data.len());
@@ -59,12 +61,13 @@ fn proc(reader: &mut dyn Read, writer: &mut dyn Write) {
   }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
   let r = io::stdin();
   let mut reader = r.lock();
 
   let w = io::stdout();
   let mut writer = w.lock();
 
-  let _ = proc(&mut reader, &mut writer);
+  let _ = proc(&mut reader, &mut writer).await;
 }
