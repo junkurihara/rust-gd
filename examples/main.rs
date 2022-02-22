@@ -61,13 +61,17 @@ async fn proc(reader: &mut dyn Read, writer: &mut dyn Write) {
   }
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
   let r = io::stdin();
   let mut reader = r.lock();
 
   let w = io::stdout();
   let mut writer = w.lock();
 
-  let _ = proc(&mut reader, &mut writer).await;
+  let mut runtime_builder = tokio::runtime::Builder::new_multi_thread();
+  runtime_builder.enable_all();
+  runtime_builder.thread_name("rust-gd-example");
+  let runtime = runtime_builder.build().unwrap();
+
+  runtime.block_on(async move { proc(&mut reader, &mut writer).await });
 }
