@@ -2,6 +2,7 @@ use super::{Deduped, GDTrait};
 use crate::dict::BasisDict;
 use crate::error::*;
 use crate::separator::Separator;
+use async_trait::async_trait;
 use bitvec::prelude::*;
 use libecc::{types::*, *};
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -17,15 +18,16 @@ where
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#[async_trait]
 impl<C> GDTrait for BitGD<C>
 where
-  C: BitUnitCode,
+  C: BitUnitCode + Send + Sync,
 {
   fn unit_check(&self) {
     println!("bit unit code");
   }
 
-  fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped> {
+  async fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped> {
     // Currently Byte Alignment is employed, i.e., message is always in bytes and some padding of < 8bits is applied;
     let code_len = self.code.code_bit_len();
     let last_chunk_pad_bytelen = self.chunk_bytelen - buf.len() % self.chunk_bytelen;
@@ -46,7 +48,9 @@ where
         }
       });
 
-      let decoded = self.code.decode(target_bitslice.as_bitslice())?;
+      // TODO: parallelization here
+      let decoded_future = async { self.code.decode(target_bitslice.as_bitslice()) };
+      let decoded = decoded_future.await?;
 
       // write result and update dict
       let (sep, id_or_base) = match self.basis_dict.get_id(&decoded.base) {
@@ -70,7 +74,7 @@ where
     })
   }
 
-  fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep> {
+  async fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep> {
     let deduped_bs = BitSlice::from_slice(&deduped.data);
     let code_len = self.code.code_bit_len();
     let info_len = self.code.info_bit_len();

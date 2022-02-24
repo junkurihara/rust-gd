@@ -4,6 +4,7 @@ mod gd_bit_unit;
 mod gd_byte_unit;
 mod separator;
 
+use async_trait::async_trait;
 use dict::BasisDict;
 use error::*;
 use gd_bit_unit::BitGD;
@@ -19,9 +20,6 @@ pub enum GD {
 impl GD {
   pub async fn setup(&self, dict_size: usize) -> Result<GDInner> {
     // TODO: consider parallelization using async
-    self.setup_sync(dict_size)
-  }
-  pub fn setup_sync(&self, dict_size: usize) -> Result<GDInner> {
     match self {
       GD::ReedSolomon(a, b) => Ok(GDInner::ReedSolomon(ByteGD {
         code: ReedSolomon::new(*a, *b)?,
@@ -56,48 +54,36 @@ impl GDInner {
       GDInner::ReedSolomon(x) => x.unit_check(),
     }
   }
-  pub fn dedup_sync(&mut self, buf: &U8SRep) -> Result<Deduped> {
-    match self {
-      GDInner::Hamming(x) => x.dedup(buf),
-      GDInner::ReedSolomon(x) => x.dedup(buf),
-    }
-  }
-
-  pub fn dup_sync(&mut self, deduped: &Deduped) -> Result<U8VRep> {
-    match self {
-      GDInner::Hamming(x) => x.dup(deduped),
-      GDInner::ReedSolomon(x) => x.dup(deduped),
-    }
-  }
   // Asynchronous APIs
   // TODO: consider some parallelization only for 'decoding' operation to split chunk into base and deviation.
   // TODO: also consider for 'encoding' as well
   pub async fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped> {
     match self {
-      GDInner::Hamming(x) => x.dedup(buf),
-      GDInner::ReedSolomon(x) => x.dedup(buf),
+      GDInner::Hamming(x) => x.dedup(buf).await,
+      GDInner::ReedSolomon(x) => x.dedup(buf).await,
     }
   }
 
   pub async fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep> {
     match self {
-      GDInner::Hamming(x) => x.dup(deduped),
-      GDInner::ReedSolomon(x) => x.dup(deduped),
+      GDInner::Hamming(x) => x.dup(deduped).await,
+      GDInner::ReedSolomon(x) => x.dup(deduped).await,
     }
   }
-  pub fn set_error_alignment(&mut self, trans: &[U8VRep]) -> Result<()> {
+  pub async fn set_error_alignment(&mut self, trans: &[U8VRep]) -> Result<()> {
     match self {
       GDInner::Hamming(_) => Err(anyhow!("No such method for Hamming codes")),
-      GDInner::ReedSolomon(x) => x.set_error_alignment(trans),
+      GDInner::ReedSolomon(x) => x.set_error_alignment(trans).await,
     }
   }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#[async_trait]
 pub trait GDTrait {
   fn unit_check(&self);
-  fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped>;
-  fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep>;
+  async fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped>;
+  async fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep>;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -228,8 +214,8 @@ mod tests {
       .setup(dict_size)
       .await
       .unwrap();
-    let res_dedup = gd_dedup.set_error_alignment(&trans);
-    let res_dup = gd_dup.set_error_alignment(&trans);
+    let res_dedup = gd_dedup.set_error_alignment(&trans).await;
+    let res_dup = gd_dup.set_error_alignment(&trans).await;
     assert!(res_dedup.is_ok());
     assert!(res_dup.is_ok());
 

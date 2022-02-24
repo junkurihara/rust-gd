@@ -2,6 +2,7 @@ use super::{Deduped, GDTrait};
 use crate::dict::BasisDict;
 use crate::error::*;
 use crate::separator::Separator;
+use async_trait::async_trait;
 use bitvec::prelude::*;
 use libecc::{types::*, *};
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -20,7 +21,7 @@ impl<C> ByteGD<C>
 where
   C: Code + ByteUnitCode,
 {
-  pub fn set_error_alignment(&mut self, mat_slice: &[U8VRep]) -> Result<()> {
+  pub async fn set_error_alignment(&mut self, mat_slice: &[U8VRep]) -> Result<()> {
     ensure!(
       mat_slice.len() == self.code.code_byte_len(),
       "Invalid matrix size"
@@ -29,15 +30,16 @@ where
   }
 }
 
+#[async_trait]
 impl<C> GDTrait for ByteGD<C>
 where
-  C: ByteUnitCode,
+  C: ByteUnitCode + Send + Sync,
 {
   fn unit_check(&self) {
     println!("byte unit code");
   }
 
-  fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped> {
+  async fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped> {
     let last_chunk_pad_bytelen = self.chunk_bytelen - buf.len() % self.chunk_bytelen;
     let mut padded = vec![0u8; last_chunk_pad_bytelen];
 
@@ -51,7 +53,10 @@ where
       } else {
         &buf[byte_ptr..byte_ptr + self.chunk_bytelen]
       };
-      let decoded = self.code.decode(target)?;
+
+      // TODO: parallelization here
+      let decoded_future = async { self.code.decode(target) };
+      let decoded = decoded_future.await?;
 
       // write result and update dict
       let (sep, id_or_base) = match self.basis_dict.get_id(&decoded.base) {
@@ -74,7 +79,7 @@ where
       last_chunk_pad_bytelen,
     })
   }
-  fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep> {
+  async fn dup(&mut self, deduped: &Deduped) -> Result<U8VRep> {
     let deduped_bs = BitSlice::from_slice(&deduped.data);
 
     let u8size = u8::BITS as usize;

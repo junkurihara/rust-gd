@@ -13,6 +13,7 @@ readme = "README.md"
 
 [dependencies]
 anyhow = "1.0.53"
+async-trait = "0.1.52"
 bitvec = "1.0.0"
 hashlink = "0.7.0"
 libecc = { path = "src/libecc", version = "0.1.0" }
