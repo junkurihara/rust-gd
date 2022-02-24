@@ -13,6 +13,9 @@ anyhow = "1.0.53"
 bitvec = "1.0.0"
 phf = { version = "0.10.1", features = ["macros"] }
 
+[dev-dependencies]
+tokio = { version = "1.17.0", features = ["rt", "macros", "rt-multi-thread"] }
+tokio-stream = "0.1.8"
 
 [profile.release]
 codegen-units = 1

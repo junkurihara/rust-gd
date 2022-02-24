@@ -150,6 +150,8 @@ mod tests {
   use crate::HexDump;
 
   use super::*;
+  use std::time::Instant;
+  use tokio_stream::StreamExt;
 
   const N: usize = 10;
   const K: usize = 4;
@@ -279,5 +281,46 @@ mod tests {
       ])
       .unwrap()
     );
+  }
+
+  const N_VAR: usize = 128;
+  const K_VAR: usize = 126;
+  const N_LOOP: usize = 10;
+
+  #[tokio::test]
+  async fn async_rs_test() {
+    let rs = ReedSolomon::new(N_VAR, K_VAR).unwrap();
+    let message = &[&[0u8; K_VAR]; N_LOOP];
+    let dev = &[0u8; N_VAR - K_VAR];
+
+    // iter sync
+    let before = Instant::now();
+    let _res = message
+      .iter()
+      .map(|v| rs.encode(v.clone(), &dev.clone()).unwrap())
+      .collect::<Vec<Encoded<U8VRep>>>();
+    let duration = Instant::now().duration_since(before);
+    let secs = duration.as_secs() as f64 + duration.subsec_nanos() as f64 / 1000000000.0;
+    println!(
+      "Sync Iterator\t {:?}:\t{:.0}/s",
+      duration,
+      N_LOOP as f64 / secs
+    );
+
+    // iter async
+    let before = Instant::now();
+    let _res: Vec<Encoded<U8VRep>> = tokio_stream::iter(message)
+      .map(|v| rs.encode(v.clone(), &dev.clone()).unwrap())
+      .collect()
+      .await;
+    let duration = Instant::now().duration_since(before);
+    let secs = duration.as_secs() as f64 + duration.subsec_nanos() as f64 / 1000000000.0;
+    println!(
+      "Async Stream\t {:?}:\t{:.0}/s",
+      duration,
+      N_LOOP as f64 / secs
+    );
+
+    // TODO: comparison with join_all
   }
 }
