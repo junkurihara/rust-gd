@@ -139,14 +139,14 @@ mod tests {
 
   const RS_MAX_DICT_BITS: usize = 8;
   const RS_DICT_PARAM: usize = 2;
-  const RS_REPEAT: usize = 128;
+  const RS_REPEAT: usize = 1024;
 
   #[tokio::test]
   async fn rs_works() {
     let mut rng = rand::thread_rng();
     let words_org = WORD_STR.to_string().into_bytes().repeat(RS_REPEAT);
 
-    for code_len in vec![3, 4, 8, 16, 32, 64, 128].into_iter() {
+    for code_len in vec![128].into_iter() {
       for msg_len in 2isize.max(code_len as isize - 8) as usize..code_len {
         let dict_size = (1 << ((code_len - msg_len) * RS_DICT_PARAM).min(RS_MAX_DICT_BITS)) - 1;
 
@@ -165,7 +165,7 @@ mod tests {
           .into_iter()
           .enumerate()
           .map(|(idx, b)| {
-            if idx % RS_REPEAT < msg_len {
+            if idx % code_len < msg_len {
               b
             } else {
               let random_pad: u8 = rng.gen();
