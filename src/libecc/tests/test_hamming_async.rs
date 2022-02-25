@@ -29,8 +29,6 @@ async fn sync_hamming_works() -> Result<()> {
 
   // iter sync
   let before = Instant::now();
-  // let syndrome = hamming.decode(data.as_bitslice()).unwrap();
-  // let parity = hamming.encode(&data, &syndrome).unwrap();
   let _res = message
     .iter()
     .map(|v| hamming.encode(v.as_ref(), dev.as_ref()))
@@ -75,7 +73,6 @@ async fn async_hamming_works() -> Result<()> {
   // iter async
   let before = Instant::now();
   let inner = stream::iter(message)
-    // .map(|v| encode_async(&hamming, v, dev.as_ref()))
     .map(|v| async {
       let hm = hamming.to_owned();
       let d = dev.to_owned();
