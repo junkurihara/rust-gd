@@ -9,7 +9,7 @@ use libecc::{types::*, *};
 #[derive(Debug, Clone)]
 pub struct BitGD<C>
 where
-  C: Code + BitUnitCode,
+  C: Code + BitUnitCode + Clone,
 {
   pub code: C,
   pub basis_dict: BasisDict<BVRep>,
@@ -21,7 +21,7 @@ where
 #[async_trait]
 impl<C> GDTrait for BitGD<C>
 where
-  C: BitUnitCode + Send + Sync,
+  C: BitUnitCode + Send + Sync + Clone,
 {
   fn unit_check(&self) {
     println!("bit unit code");
