@@ -167,7 +167,7 @@ mod tests {
       } else {
         let _new_id = basis_dict_1.put_base(&buf.to_vec()).unwrap();
         // simulate existing usecase
-        let mut bv_buf = BVRep::from_slice(&buf.to_vec()).clone();
+        let mut bv_buf = BVRep::from_slice(buf).clone();
         bv_buf.force_align();
         let u8buf = bv_buf.to_bitvec().as_raw_slice().to_owned();
         let _new_id_r = basis_dict_2.put_base(&u8buf).unwrap();
