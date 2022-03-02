@@ -8,6 +8,7 @@ homepage = "https://github.com/junkurihara/rust-gd"
 repository = "https://github.com/junkurihara/rust-gd"
 license = "MIT"
 readme = "README.md"
+categories = ["compression", "algorithms", "mathematics"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
