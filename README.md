@@ -1,6 +1,6 @@
 # rust-gd: A Rust Implementation of Generalized Deduplication
 
-[![rust-gd](https://img.shields.io/crates/v/rust-gd.svg)](https://crates.io/crates/rust-gd) [![rust-gd](https://docs.rs/rust-gd/badge.svg)](https://docs.rs/rust-gd)
+[![rust-gd](https://img.shields.io/crates/v/rust-gd.svg)](https://crates.io/crates/rust-gd) [![rust-gd](https://docs.rs/rust-gd/badge.svg)](https://docs.rs/rust-gd) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Rust implementation of *Generalized Deduplication* (GD) based on several types of error-correcting codes.
 
