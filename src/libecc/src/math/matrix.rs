@@ -1,7 +1,9 @@
 use super::{field::*, vectorized::Vectorized};
 use crate::error::*;
-use core::fmt::Debug;
-use core::ops::{Add, Div, Mul, Sub};
+use core::{
+  fmt::Debug,
+  ops::{Add, Div, Mul, Sub},
+};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Matrix<T>(pub Vec<Vectorized<T>>);

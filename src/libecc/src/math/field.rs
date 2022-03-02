@@ -3,8 +3,10 @@
 // Basic operations overrided for the Galois Field 256 (2**8)
 // Uses pre-calculated tables for 0x11d primitive polynomial (x**8 + x**4 + x**3 + x**2 + 1)
 
-use core::iter::{Product, Sum};
-use core::ops::{Add, Div, Mul, Sub};
+use core::{
+  iter::{Product, Sum},
+  ops::{Add, Div, Mul, Sub},
+};
 
 pub const ORDER: usize = 256;
 pub const ROOT: u8 = 0x02;

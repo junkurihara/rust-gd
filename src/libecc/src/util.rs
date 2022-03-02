@@ -1,5 +1,4 @@
-use crate::error::*;
-use crate::types::*;
+use crate::{error::*, types::*};
 use bitvec::prelude::*;
 
 pub fn hexdump_slice(slice: &U8SRep) -> Result<String> {

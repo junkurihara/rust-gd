@@ -1,7 +1,5 @@
 use super::{Deduped, GDTrait};
-use crate::dict::BasisDict;
-use crate::error::*;
-use crate::separator::Separator;
+use crate::{dict::BasisDict, error::*, separator::Separator};
 use async_trait::async_trait;
 use bitvec::prelude::*;
 use futures::{
@@ -9,6 +7,7 @@ use futures::{
   stream::{self, StreamExt},
 };
 use libecc::{types::*, *};
+use tokio::task::spawn_blocking;
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Clone)]
 pub struct ByteGD<C>
@@ -45,7 +44,6 @@ where
 
   async fn dedup(&mut self, buf: &U8SRep) -> Result<Deduped> {
     let residue = buf.len() % self.chunk_bytelen;
-
     let (chunk_num, last_chunk_pad_bytelen) = if residue == 0 {
       (buf.len() / self.chunk_bytelen, 0)
     } else {
@@ -73,7 +71,7 @@ where
       stream::iter(targets)
         .map(|v| async {
           let code = self.code.to_owned();
-          tokio::task::spawn_blocking(move || code.decode(&v)).await?
+          spawn_blocking(move || code.decode(&v)).await?
         })
         .collect::<Vec<_>>()
         .await,
@@ -150,7 +148,7 @@ where
       stream::iter(decoded_chunks)
         .map(|(base, dev)| async {
           let code = self.code.to_owned();
-          tokio::task::spawn_blocking(move || code.encode(&base, &dev)).await?
+          spawn_blocking(move || code.encode(&base, &dev)).await?
         })
         .collect::<Vec<_>>()
         .await,

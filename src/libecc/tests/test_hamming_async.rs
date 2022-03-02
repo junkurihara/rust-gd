@@ -1,5 +1,5 @@
 use libecc::{*, types::*};
-use anyhow::{Result};
+use anyhow::Result;
 use bitvec::prelude::*;
 use futures::{
   future::join_all,
