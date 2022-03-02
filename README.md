@@ -125,8 +125,6 @@ Following should be considered to be implemented.
 
 - Benchmark for the performance of deduplication
 
-- Async for encoding and decoding operation inside dedup and dup process without breaking the order of dictionary lookup/insertion.
-
 - Optimization of math operations
 
 - Deletion and deviation using PRNG (Yggdrasil paper)
