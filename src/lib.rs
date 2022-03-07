@@ -22,7 +22,7 @@ impl GD {
     // TODO: consider parallelization using async
     match self {
       GD::ReedSolomon(a, b) => Ok(GDInner::ReedSolomon(ByteGD {
-        code: ReedSolomon::new(*a, *b)?,
+        code: ReedSolomon::new(*a, *b).await?,
         basis_dict: BasisDict::<U8VRep>::new(dict_size),
         chunk_bytelen: *a,
       })),

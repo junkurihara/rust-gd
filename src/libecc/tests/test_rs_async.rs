@@ -10,9 +10,6 @@ const N_VAR: usize = 128;
 const K_VAR: usize = 126;
 const N_LOOP: usize = 10;
 
-async fn setup_async(n: usize, k: usize) -> Result<ReedSolomon> {
-  tokio::task::spawn_blocking(move || ReedSolomon::new(n, k)).await?
-}
 
 async fn encode_async(
   rs: &ReedSolomon,
@@ -34,7 +31,7 @@ async fn decode_async(rs: &ReedSolomon, data: U8VRep) -> Result<Decoded<U8VRep>>
 #[tokio::test]
 async fn sync_rs_works() -> Result<()> {
   let before = Instant::now();
-  let rs = ReedSolomon::new(N_VAR, K_VAR).unwrap();
+  let rs = ReedSolomon::new(N_VAR, K_VAR).await.unwrap();
   let duration = Instant::now().duration_since(before);
   let secs = duration.as_secs() as f64 + duration.subsec_nanos() as f64 / 1000000000.0;
   println!("Sync Set\t {:?}:\t{:.0}/s", duration, N_LOOP as f64 / secs);
@@ -77,7 +74,7 @@ async fn sync_rs_works() -> Result<()> {
 #[tokio::test]
 async fn async_rs_works() -> Result<()> {
   let before = Instant::now();
-  let rs = setup_async(N_VAR, K_VAR).await?;
+  let rs = ReedSolomon::new(N_VAR, K_VAR).await.unwrap();
   let duration = Instant::now().duration_since(before);
   let secs = duration.as_secs() as f64 + duration.subsec_nanos() as f64 / 1000000000.0;
   println!("Async Set\t {:?}:\t{:.0}/s", duration, N_LOOP as f64 / secs);

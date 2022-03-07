@@ -1,4 +1,9 @@
 use super::{error::*, math::*, types::*, ByteUnitCode, Code, Decoded, Encoded};
+use futures::{
+  future::join_all,
+  stream::{self, StreamExt},
+};
+use tokio::task::{spawn_blocking, JoinError};
 
 #[derive(Debug, Clone)]
 pub struct ReedSolomon {
@@ -11,21 +16,30 @@ pub struct ReedSolomon {
 }
 
 impl ReedSolomon {
-  pub fn new(code_symbol_len: usize, info_symbol_len: usize) -> Result<Self> {
+  pub async fn new(code_symbol_len: usize, info_symbol_len: usize) -> Result<Self> {
     ensure!(
       code_symbol_len > info_symbol_len && code_symbol_len < ORDER && info_symbol_len < ORDER,
       "Invalid params"
     );
 
-    let vandermonde_matrix = Matrix::new(&{
-      (0..info_symbol_len)
+    let res: Vec<_> = join_all(
+      stream::iter(0..info_symbol_len)
         .map(|row| {
-          (0..code_symbol_len)
-            .map(|col| GF256(ROOT).pow((row * col) as isize))
-            .collect()
+          spawn_blocking(move || {
+            (0..code_symbol_len)
+              .map(|col| GF256(ROOT).pow((row * col) as isize))
+              .collect::<Vec<GF256>>()
+          })
         })
-        .collect::<Vec<Vec<GF256>>>()
-    })?;
+        .collect::<Vec<_>>()
+        .await,
+    )
+    .await;
+    let vandermonde_matrix = Matrix::new(
+      &res
+        .into_iter()
+        .collect::<Result<Vec<Vec<GF256>>, JoinError>>()?,
+    )?;
 
     let inverse_matrix = vandermonde_matrix
       .clone()
@@ -153,9 +167,9 @@ mod tests {
   const N: usize = 10;
   const K: usize = 4;
 
-  #[test]
-  fn decode_works() {
-    let rs = ReedSolomon::new(N, K).unwrap();
+  #[tokio::test]
+  async fn decode_works() {
+    let rs = ReedSolomon::new(N, K).await.unwrap();
     let message = (0u8..K as u8).map(|x| x).collect::<U8VRep>();
     let dev = &[0u8; N - K];
     let encoded = rs.encode(&message, dev).unwrap();
@@ -180,9 +194,9 @@ mod tests {
     assert_eq!(dev.hexdump().unwrap(), decoded.deviation.hexdump().unwrap())
   }
 
-  #[test]
-  fn encode_works() {
-    let rs = ReedSolomon::new(N, K).unwrap();
+  #[tokio::test]
+  async fn encode_works() {
+    let rs = ReedSolomon::new(N, K).await.unwrap();
     let message = &[0u8; K];
     let dev = &[0u8; N - K];
     let encoded = rs.encode(message, dev).unwrap();
@@ -231,9 +245,9 @@ mod tests {
     assert_eq!(encoded.0, ans_cw);
   }
 
-  #[test]
-  fn new_works() {
-    let rs = ReedSolomon::new(N, K).unwrap();
+  #[tokio::test]
+  async fn new_works() {
+    let rs = ReedSolomon::new(N, K).await.unwrap();
     // [
     //  [GF256(1), GF256(1), GF256(1), GF256(1), GF256(1), GF256(1), GF256(1), GF256(1), GF256(1), GF256(1)],
     //  [GF256(1), GF256(2), GF256(4), GF256(8), GF256(16), GF256(32), GF256(64), GF256(128), GF256(29), GF256(58)],
