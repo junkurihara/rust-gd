@@ -8,8 +8,7 @@ use futures::{
 use std::time::Instant;
 const N_VAR: usize = 128;
 const K_VAR: usize = 126;
-const N_LOOP: usize = 10;
-
+const N_LOOP: usize = 10000;
 
 async fn encode_async(
   rs: &ReedSolomon,
