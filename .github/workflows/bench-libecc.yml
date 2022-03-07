@@ -1,0 +1,23 @@
+name: Unit test for libecc
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Run libecc benches
+      run: |
+        rustup install nightly
+        cd src/libecc
+        cargo +nightly bench --verbose
