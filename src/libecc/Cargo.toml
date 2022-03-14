@@ -9,7 +9,7 @@ repository = "https://github.com/junkurihara/rust-gd"
 license = "MIT"
 
 [dependencies]
-anyhow = "1.0.53"
+anyhow = "1.0.55"
 bitvec = "1.0.0"
 phf = { version = "0.10.1", features = ["macros"] }
 futures = "0.3.21"
