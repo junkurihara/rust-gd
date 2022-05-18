@@ -92,11 +92,9 @@ impl ByteUnitCode for ReedSolomon {
 
     let mat = self.precoding.as_ref().unwrap();
     ensure!(mat.is_square(), "Matrix for error alignment must be square");
-    let inv = if let Ok(m) = mat.inverse_left_submatrix(GF256(0), GF256(1)) {
-      m
-    } else {
-      bail!("Singular matrix!");
-    };
+    let inv = mat
+      .inverse_left_submatrix(GF256(0), GF256(1))
+      .map_err(|e| anyhow!("Singular matrix: {}", e))?;
     self.postcoding = Some(inv);
     // assert!((mat.clone() * inv.clone()).is_identity_matrix(GF256(0), GF256(1)));
     Ok(())
