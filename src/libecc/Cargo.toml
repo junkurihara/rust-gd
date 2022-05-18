@@ -1,6 +1,6 @@
 [package]
 name = "libecc"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 description = "Library of Error-Correcting Codes for GD"
 authors = ["Jun Kurihara"]
