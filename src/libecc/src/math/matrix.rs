@@ -62,7 +62,7 @@ where
       "Invalid input as a matrix"
     );
     Ok(Matrix(
-      src.into_iter().map(|v| Vectorized(v.to_vec())).collect(),
+      src.iter().map(|v| Vectorized(v.to_vec())).collect(),
     ))
   }
   pub fn row_size(&self) -> usize {
@@ -124,12 +124,11 @@ where
 
     Ok(Matrix(
       expanded
-        .into_iter()
+        .iter_mut()
         .map(|row| {
-          let x = row
+          row
             .clone()
-            .subvec(self.col_size(), self.col_size() + self.row_size());
-          x
+            .subvec(self.col_size(), self.col_size() + self.row_size())
         })
         .collect(),
     ))
@@ -155,13 +154,13 @@ where
         }
       }
       // normalize focus
-      let coefficient = identity_t / focus.0[ptr].clone();
+      let coefficient = identity_t / focus.0[ptr];
       focus.mul_scalar_within(coefficient);
       target[ptr] = focus.clone();
 
       // subtract focus from upper rows
       for i in (0..ptr).rev() {
-        let coefficient = target[i].0[ptr].clone();
+        let coefficient = target[i].0[ptr];
         target[i].sub_within(focus.clone().mul_scalar(coefficient));
       }
     }
@@ -188,14 +187,14 @@ where
         }
       }
       // normalize focus
-      let coefficient = identity_t / focus.0[ptr].clone();
+      let coefficient = identity_t / focus.0[ptr];
       focus.mul_scalar_within(coefficient);
       target[ptr] = focus.clone();
 
       // subtract focus from lower rows
-      for i in ptr + 1..row_size {
-        let coefficient = target[i].0[ptr].clone();
-        target[i].sub_within(focus.clone().mul_scalar(coefficient));
+      for item in target.iter_mut().take(row_size).skip(ptr + 1) {
+        let coefficient = item.0[ptr];
+        item.sub_within(focus.clone().mul_scalar(coefficient));
       }
     }
     Ok(())
@@ -240,7 +239,7 @@ mod tests {
     ]);
     assert!(mat.is_ok());
     let matrix = mat.unwrap();
-    let inv = matrix.clone().inverse_left_submatrix(GF256(0), GF256(1));
+    let inv = matrix.inverse_left_submatrix(GF256(0), GF256(1));
     assert!(inv.is_ok());
     let inverse = inv.unwrap();
     // println!("{:?}", inverse.clone());

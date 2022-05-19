@@ -42,13 +42,11 @@ impl ReedSolomon {
     )?;
 
     let inverse_matrix = vandermonde_matrix
-      .clone()
       .inverse_left_submatrix(GF256(0), GF256(1))?;
 
     // Systematic generator matrix for ease
     let systematic_generator_matrix = inverse_matrix * vandermonde_matrix;
     let parity_part = systematic_generator_matrix
-      .clone()
       .column_submat(info_symbol_len, code_symbol_len)?;
 
     Ok(ReedSolomon {
@@ -168,7 +166,7 @@ mod tests {
   #[tokio::test]
   async fn decode_works() {
     let rs = ReedSolomon::new(N, K).await.unwrap();
-    let message = (0u8..K as u8).map(|x| x).collect::<U8VRep>();
+    let message = (0u8..K as u8).collect::<U8VRep>();
     let dev = &[0u8; N - K];
     let encoded = rs.encode(&message, dev).unwrap();
     let decoded = rs.decode(&encoded.0).unwrap();
@@ -181,8 +179,8 @@ mod tests {
       decoded.deviation.hexdump().unwrap()
     );
 
-    let message = (0u8..K as u8).map(|x| x).collect::<U8VRep>();
-    let dev = (0u8..(N - K) as u8).rev().map(|x| x).collect::<U8VRep>();
+    let message = (0u8..K as u8).collect::<U8VRep>();
+    let dev = (0u8..(N - K) as u8).rev().collect::<U8VRep>();
     let encoded = rs.encode(&message, &dev).unwrap();
     let decoded = rs.decode(&encoded.0).unwrap();
 
@@ -223,7 +221,7 @@ mod tests {
     ans_err.extend_from_slice(ans_err_parity.as_slice());
     assert_eq!(encoded.0, ans_err);
 
-    let message = (0u8..K as u8).map(|x| x).collect::<U8VRep>();
+    let message = (0u8..K as u8).collect::<U8VRep>();
     let dev = &[0u8; N - K];
     let encoded = rs.encode(&message, dev).unwrap();
     let ans_cw_parity = rs
@@ -243,6 +241,7 @@ mod tests {
     assert_eq!(encoded.0, ans_cw);
   }
 
+  #[allow(clippy::useless_vec)]
   #[tokio::test]
   async fn new_works() {
     let rs = ReedSolomon::new(N, K).await.unwrap();

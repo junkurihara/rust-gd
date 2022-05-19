@@ -13,8 +13,7 @@ fn get_runtime() -> tokio::runtime::Runtime {
   let mut runtime_builder = tokio::runtime::Builder::new_multi_thread();
   runtime_builder.enable_all();
   runtime_builder.thread_name("bench");
-  let runtime = runtime_builder.build().unwrap();
-  runtime
+  runtime_builder.build().unwrap()
 }
 
 #[bench]
@@ -44,6 +43,7 @@ fn rs_enc_bench(b: &mut test::Bencher){
       .collect::<Vec<_>>()
   });
 }
+#[allow(clippy::needless_collect)]
 #[bench]
 fn rs_dec_bench(b: &mut test::Bencher){
   let runtime = get_runtime();

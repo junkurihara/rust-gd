@@ -28,6 +28,7 @@ fn enc_bench(b: &mut test::Bencher, deg: u32) {
   });
 }
 
+#[allow(clippy::needless_collect)]
 fn dec_bench(b: &mut test::Bencher, deg: u32) {
   let message: Vec<BVRep> = vec![bitvec![u8, Msb0; 0; K_VAR]; N_LOOP];
   let dev: BVRep = bitvec![u8, Msb0; 0; N_VAR-K_VAR];

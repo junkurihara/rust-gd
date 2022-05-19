@@ -55,6 +55,7 @@ const EXP_TABLE: [u8; 255] = [
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct GF256(pub u8);
 
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Add for GF256 {
   type Output = GF256;
 
@@ -63,6 +64,7 @@ impl Add for GF256 {
   }
 }
 
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Sub for GF256 {
   type Output = Self;
 

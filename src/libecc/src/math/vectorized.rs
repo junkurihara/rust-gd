@@ -33,6 +33,9 @@ where
   pub fn len(&self) -> usize {
     self.0.len()
   }
+  pub fn is_empty(&self) -> bool {
+      self.len() == 0
+  }
   pub fn subvec(&self, start: usize, end: usize) -> Self {
     assert!(end <= self.len() && start <= end, "Invalid params");
     Vectorized((&self.0[start..end]).to_vec())
@@ -44,7 +47,7 @@ where
   T: Mul<Output = T> + Copy,
 {
   pub fn mul_scalar(&self, coefficient: T) -> Vectorized<T> {
-    Self(self.0.iter().map(|c| c.clone() * coefficient).collect())
+    Self(self.0.iter().map(|c| *c * coefficient).collect())
   }
 }
 
@@ -128,7 +131,7 @@ where
 
   fn mul(self, other: Self) -> Self::Output {
     assert_eq!(self.0.len(), other.0.len());
-    assert!(self.0.len() > 0);
+    assert!(!self.0.is_empty());
     let acc = self.0[0] * other.0[0];
     (1..self.0.len()).fold(acc, |acc, idx| acc + self.0[idx] * other.0[idx])
   }

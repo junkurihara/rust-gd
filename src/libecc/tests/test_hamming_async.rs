@@ -16,6 +16,7 @@ async fn setup_async(deg: u32) -> Result<Hamming> {
   tokio::task::spawn_blocking(move || Hamming::new(deg)).await?
 }
 
+#[allow(clippy::needless_collect)]
 #[tokio::test]
 async fn sync_hamming_works() -> Result<()> {
   let before = Instant::now();

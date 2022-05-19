@@ -116,10 +116,7 @@ where
     // max bit pad = 7 bits, if actual bitlen = 9 (0..8), 7bits pad is given.
     // then bitptr = 9 here and deduped_bs.len() = 15
     while bitptr < deduped_bs.len() - max_bit_pads {
-      let sep = match deduped_bs[bitptr] {
-        false => Separator::AsIs,
-        true => Separator::Deduped,
-      };
+      let sep = Separator::from(deduped_bs[bitptr]);
       bitptr += 1;
 
       decoded_chunks.push(match sep {

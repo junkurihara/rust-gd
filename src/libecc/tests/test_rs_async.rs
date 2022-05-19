@@ -27,6 +27,7 @@ async fn decode_async(rs: &ReedSolomon, data: U8VRep) -> Result<Decoded<U8VRep>>
   tokio::task::spawn_blocking(move || rs_clone.decode(&data_clone)).await?
 }
 
+#[allow(clippy::needless_collect)]
 #[tokio::test]
 async fn sync_rs_works() -> Result<()> {
   let before = Instant::now();
