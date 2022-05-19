@@ -19,11 +19,11 @@ Add the following to your `Cargo.toml` as imported directly from GitHub:
 rust-gd = { git = "https://github.com/junkurihara/rust-gd.git" }
 ```
 
-or from crates.io (not published yet):
+or from crates.io:
 
 ```toml:Cargo.toml
 [dependencies]
-rust-gd = "0.1.0"
+rust-gd = "*" // or appropriate version
 ```
 
 Then, add `use` in your `.rs` file.
