@@ -86,7 +86,7 @@ where
   fn usize_id_to_bitvec_id(&self, id: &usize) -> IdRep {
     let bs_id: BitVec<usize, Msb0> = BitVec::from_element(id.to_owned());
     let mut res = BVRep::new();
-    res.extend_from_bitslice(&bs_id[bs_id.len() - self.id_bitlen as usize..]);
+    res.extend_from_bitslice(&bs_id[bs_id.len() - self.id_bitlen..]);
     res
   }
 
@@ -143,7 +143,8 @@ where
 #[cfg(test)]
 mod tests {
   use super::*;
-  const WORD_STR: &str = "寿限無(じゅげむ)寿限無(じゅげむ)五劫(ごこう)のすりきれ海砂利(かいじゃり)水魚(すいぎょ)の水行末(すいぎょうまつ) ";
+  const WORD_STR: &str =
+    "寿限無(じゅげむ)寿限無(じゅげむ)五劫(ごこう)のすりきれ海砂利(かいじゃり)水魚(すいぎょ)の水行末(すいぎょうまつ) ";
   const MSG_BYTELEN: usize = 3;
   const CODE_BYTELEN: usize = 4;
   const DICT_SIZE: usize = 10;

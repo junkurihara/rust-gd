@@ -25,10 +25,7 @@ where
   C: Code + ByteUnitCode + Clone,
 {
   pub async fn set_error_alignment(&mut self, mat_slice: &[U8VRep]) -> Result<()> {
-    ensure!(
-      mat_slice.len() == self.code.code_byte_len(),
-      "Invalid matrix size"
-    );
+    ensure!(mat_slice.len() == self.code.code_byte_len(), "Invalid matrix size");
     self.code.set_precoding(mat_slice)
   }
 }
@@ -128,7 +125,7 @@ where
           bitptr += info_bitlen;
           let mut bv = deduped_bs[bitptr..bitptr + dev_bitlen].to_bitvec().clone();
           bv.force_align();
-          ((&part).to_owned(), bv.as_raw_slice().to_owned())
+          (part.to_owned(), bv.as_raw_slice().to_owned())
         }
         Separator::Deduped => {
           let id = deduped_bs[bitptr..bitptr + id_bitlen].to_owned();
