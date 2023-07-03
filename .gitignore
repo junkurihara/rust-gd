@@ -17,5 +17,5 @@ Cargo.lock
 
 _*
 
-obsolete/
-.vscode/
+obsolete
+.vscode

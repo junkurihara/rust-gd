@@ -36,7 +36,7 @@ use rust_gd::*;
 
 **NOTE: The compression rate strongly depends on the data alignment and data structure. So you should carefully choose the parameters according to the characteristics of given data**.
 
-### GD with Reed-Solomon code over GF(256)
+### GD with Reed-Solomon code over $\mathrm{GF}(2^8)$
 
 ```rust:
 use rust_gd::*;
@@ -64,7 +64,7 @@ println!("> Duped size {} bytes", y.len();
 assert_eq!(duped, words);
 ```
 
-In GD with RS codes, **error-alignment** can be employed by
+In GD with RS codes, an approach of **error-alignment** can be employed by
 
 ```rust:
 // Linear transformation matrix used for error-alignment. This must be nonsinglar.
@@ -115,11 +115,11 @@ println!("> Duped size {} bytes", y.len();
 
 ## Codes in our implementation
 
-Currently, our implementation is based on Hamming code and Reed-Solomon (RS) code. GD based on RS codes processes data chunks as *byte stream*. On the other hand, Hamming-based GD considered as data chunks as *bit stream*.
+Currently, our GD implementation is based only on Hamming and Reed-Solomon (RS) codes. The GD based on RS codes processes data chunks as *byte stream*. On the other hand, Hamming-based GD serves data chunks as *bit stream*.
 
-For GD implementation based on Hamming codes, in the internal `libecc` library of error-correcting codes, Hamming code with `m = 3` works. However, the parameter of `m = 3` does not work in GD. This is because the code length, i.e., 7 bits, is not sufficient to deduplicate a "byte"-based data. In order to reasonably deduplicate byte-based data, *byte alignment* is needed. So, we omitted this small length parameter.
+For GD implementation using Hamming codes, Hamming code with the degree $m = 3$ of the code works in the internal `libecc` library of error-correcting codes, i.e., a case of the code length $n = 2^m - 1 = 7$. However, the Hamming code of $m = 3$ cannot be employed as the underlying linear code of Hamming-based GD. This is because the code length, i.e., $n=7$ bits, is not sufficient to deduplicate a "byte"-based data. In order to reasonably deduplicate byte-based data, *byte alignment* is needed. So, we omitted $m = 3$ and considers the parameter $m \geq 4$.
 
-**Byte alignment**: Our implementation employs an encoding method that chunks message sequences in the unit of bytes. For example, if `(15, 11)` Hamming code is employed, a 2-bytes message is divided into two one byte (= 8 bits) sequences, and pads 7 bits of zeros to each sequence to deal as 15-bits codeword of Hamming code.
+**Byte alignment**: Our implementation employs an encoding method that chunks message sequences in the unit of bytes. For example, if $(15, 11)$ Hamming code is employed, a 2-byte message is divided into two one byte (= 8 bits) sequences, and pads $15-8=7$ bits of zeros to each sequence to deal as a 15-bit codeword of Hamming code.
 
 ## TODO
 
