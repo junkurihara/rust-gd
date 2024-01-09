@@ -17,7 +17,7 @@ anyhow = "1.0.71"
 async-trait = "0.1.69"
 bitvec = "1.0.1"
 futures = "0.3.28"
-hashlink = "0.8.3"
+hashlink = "0.9.0"
 libecc = { path = "src/libecc", version = "0.2.2" }
 tokio = { version = "1.29.1", features = ["rt", "macros", "rt-multi-thread"] }
 
